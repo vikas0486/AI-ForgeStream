@@ -421,6 +421,26 @@ docker_normalized.wav
 
 ---
 
+## Sample Assets Included
+
+This repository includes small media samples and generated outputs to demonstrate the end-to-end processing workflow.
+
+These artifacts are intended solely for educational and demonstration purposes.
+
+```
+samples/input.mp4
+↓
+outputs/audio.wav
+↓
+outputs/normalized.wav
+↓
+outputs/enhanced.mp4
+```
+
+This enables reviewers to validate the processing pipeline without reproducing the lab locally.
+
+---
+
 # Key Concepts Learned
 
 ## Codec
