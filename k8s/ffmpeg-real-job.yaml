@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-real
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "Starting FFmpeg Processing"
+
+          ffmpeg \
+          -f lavfi \
+          -i testsrc=duration=10:size=1280x720:rate=30 \
+          -c:v libx264 \
+          /data/test-video.mp4
+
+          echo "Completed"
+
+          ls -lh /data
+
+        volumeMounts:
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1

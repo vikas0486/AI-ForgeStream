@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-version
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - ffmpeg
+
+        args:
+        - -version
+
+  backoffLimit: 1

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: ffmpeg-config
+  namespace: ai-forgestream
+
+data:
+  VIDEO_CODEC: "libx264"
+  AUDIO_CODEC: "aac"
+  VIDEO_BITRATE: "2000k"
+  AUDIO_BITRATE: "128k"

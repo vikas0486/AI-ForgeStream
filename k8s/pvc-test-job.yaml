@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: pvc-test
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: storage-test
+
+        image: alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "AI-ForgeStream Storage Test" > /data/test.txt
+          cat /data/test.txt
+
+        volumeMounts:
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1

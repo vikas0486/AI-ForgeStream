@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: configmap-test
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: test
+
+        image: alpine
+
+        envFrom:
+
+        - configMapRef:
+            name: ffmpeg-config
+
+        command:
+        - sh
+
+        - -c
+
+        args:
+        - |
+          echo "VIDEO_CODEC=$VIDEO_CODEC"
+          echo "AUDIO_CODEC=$AUDIO_CODEC"
+          echo "VIDEO_BITRATE=$VIDEO_BITRATE"
+          echo "AUDIO_BITRATE=$AUDIO_BITRATE"
+
+  backoffLimit: 1

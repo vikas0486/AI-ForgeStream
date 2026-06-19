@@ -591,3 +591,490 @@ video:14814kB audio:953kB subtitle:0kB other streams:0kB global headers:0kB muxi
 Done
 /workspace # 
 
+## Implementing Kubernetes Architecture
+# Enabled Docker Desktop Kubernetes
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl cluster-info
+Kubernetes control plane is running at https://127.0.0.1:50126
+CoreDNS is running at https://127.0.0.1:50126/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get nodes
+NAME                    STATUS   ROLES           AGE     VERSION
+desktop-control-plane   Ready    control-plane   2m44s   v1.36.1
+vikash@Vikashs-MacBook-Pro AI-ForgeStream %
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl config get-contexts
+CURRENT   NAME                      CLUSTER                   AUTHINFO                  NAMESPACE
+*         docker-desktop            docker-desktop            docker-desktop            
+          kind-terraform-provider   kind-terraform-provider   kind-terraform-provider   
+
+# Builing K8 namespace set-up
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/namespace.yaml    
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/namespace.yaml
+apiVersion: v1
+kind: Namespace
+
+metadata:
+  name: ai-forgestream%                                                                                                                                                                                                     
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/namespace.yaml
+namespace/ai-forgestream created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get ns
+NAME                 STATUS   AGE
+ai-forgestream       Active   13s
+default              Active   15m
+kube-node-lease      Active   15m
+kube-public          Active   15m
+kube-system          Active   15m
+local-path-storage   Active   15m
+
+# Builing K8 Job set-up
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/ffmpeg-version-job.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/ffmpeg-version-job.yaml          
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-version
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - ffmpeg
+
+        args:
+        - -version
+
+  backoffLimit: 1%
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/ffmpeg-version-job.yaml
+job.batch/ffmpeg-version created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME             STATUS     COMPLETIONS   DURATION   AGE
+ffmpeg-version   Complete   1/1           10s        10s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get all -n ai-forgestream
+NAME                       READY   STATUS      RESTARTS   AGE
+pod/ffmpeg-version-768w4   0/1     Completed   0          6m29s
+
+NAME                       STATUS     COMPLETIONS   DURATION   AGE
+job.batch/ffmpeg-version   Complete   1/1           10s        6m29s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream ffmpeg-version-768w4
+ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
+built with gcc 10.2.1 (Alpine 10.2.1_pre1) 20201203
+configuration: --disable-debug --disable-doc --disable-ffplay --enable-fontconfig --enable-gpl --enable-libaom --enable-libaribb24 --enable-libass --enable-libbluray --enable-libfdk_aac --enable-libfreetype --enable-libkvazaar --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopus --enable-libsrt --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxvid --enable-libzmq --enable-nonfree --enable-openssl --enable-postproc --enable-shared --enable-small --enable-version3 --extra-cflags=-I/opt/ffmpeg/include --extra-ldflags=-L/opt/ffmpeg/lib --extra-libs=-ldl --extra-libs=-lpthread --prefix=/opt/ffmpeg
+libavutil      58.  2.100 / 58.  2.100
+libavcodec     60.  3.100 / 60.  3.100
+libavformat    60.  3.100 / 60.  3.100
+libavdevice    60.  1.100 / 60.  1.100
+libavfilter     9.  3.100 /  9.  3.100
+libswscale      7.  1.100 /  7.  1.100
+libswresample   4. 10.100 /  4. 10.100
+libpostproc    57.  1.100 / 57.  1.100
+
+# Builing K8 Processing Job set-up
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/ffmpeg-processing-job.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/ffmpeg-processing-job.yaml
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-processing
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - sh
+
+        - -c
+
+        args:
+        - |
+          echo "Starting Processing";
+          ffmpeg -version;
+          echo "Processing Complete";
+
+  backoffLimit: 1%                                                                                                                                                                                                          
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/ffmpeg-processing-job.yaml
+job.batch/ffmpeg-processing created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME                STATUS     COMPLETIONS   DURATION   AGE
+ffmpeg-processing   Complete   1/1           3s         15s
+ffmpeg-version      Complete   1/1           10s        27m
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                      READY   STATUS      RESTARTS   AGE
+ffmpeg-processing-jqhb7   0/1     Completed   0          29s
+ffmpeg-version-768w4      0/1     Completed   0          27m
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream ffmpeg-processing-jqhb7
+Starting Processing
+ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
+built with gcc 10.2.1 (Alpine 10.2.1_pre1) 20201203
+configuration: --disable-debug --disable-doc --disable-ffplay --enable-fontconfig --enable-gpl --enable-libaom --enable-libaribb24 --enable-libass --enable-libbluray --enable-libfdk_aac --enable-libfreetype --enable-libkvazaar --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopus --enable-libsrt --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxvid --enable-libzmq --enable-nonfree --enable-openssl --enable-postproc --enable-shared --enable-small --enable-version3 --extra-cflags=-I/opt/ffmpeg/include --extra-ldflags=-L/opt/ffmpeg/lib --extra-libs=-ldl --extra-libs=-lpthread --prefix=/opt/ffmpeg
+libavutil      58.  2.100 / 58.  2.100
+libavcodec     60.  3.100 / 60.  3.100
+libavformat    60.  3.100 / 60.  3.100
+libavdevice    60.  1.100 / 60.  1.100
+libavfilter     9.  3.100 /  9.  3.100
+libswscale      7.  1.100 /  7.  1.100
+libswresample   4. 10.100 /  4. 10.100
+libpostproc    57.  1.100 / 57.  1.100
+Processing Complete
+
+# ConfigMap Driven FFmpeg Platform
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/ffmpeg-configmap.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/ffmpeg-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: ffmpeg-config
+  namespace: ai-forgestream
+
+data:
+  VIDEO_CODEC: "libx264"
+  AUDIO_CODEC: "aac"
+  VIDEO_BITRATE: "2000k"
+  AUDIO_BITRATE: "128k"%                                                                                                                                                                                                    
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/ffmpeg-configmap.yaml
+configmap/ffmpeg-config created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get configmap -n ai-forgestream
+NAME               DATA   AGE
+ffmpeg-config      4      6s
+kube-root-ca.crt   1      35m
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl describe configmap ffmpeg-config -n ai-forgestream
+Name:         ffmpeg-config
+Namespace:    ai-forgestream
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+AUDIO_BITRATE:
+----
+128k
+
+AUDIO_CODEC:
+----
+aac
+
+VIDEO_BITRATE:
+----
+2000k
+
+VIDEO_CODEC:
+----
+libx264
+
+
+BinaryData
+====
+
+Events:  <none>
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
+# Configmap Test
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/configmap-test-job.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/configmap-test-job.yaml
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: configmap-test
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: test
+
+        image: alpine
+
+        envFrom:
+
+        - configMapRef:
+            name: ffmpeg-config
+
+        command:
+        - sh
+
+        - -c
+
+        args:
+        - |
+          echo "VIDEO_CODEC=$VIDEO_CODEC"
+          echo "AUDIO_CODEC=$AUDIO_CODEC"
+          echo "VIDEO_BITRATE=$VIDEO_BITRATE"
+          echo "AUDIO_BITRATE=$AUDIO_BITRATE"
+
+  backoffLimit: 1%                                                                                                                                                                                                          
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/configmap-test-job.yaml
+job.batch/configmap-test created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                      READY   STATUS              RESTARTS   AGE
+configmap-test-whl6l      0/1     ContainerCreating   0          6s
+ffmpeg-processing-jqhb7   0/1     Completed           0          9m18s
+ffmpeg-version-768w4      0/1     Completed           0          36m
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                      READY   STATUS      RESTARTS   AGE
+configmap-test-whl6l      0/1     Completed   0          15s
+ffmpeg-processing-jqhb7   0/1     Completed   0          9m27s
+ffmpeg-version-768w4      0/1     Completed   0          36m
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream configmap-test-whl6l
+VIDEO_CODEC=libx264
+AUDIO_CODEC=aac
+VIDEO_BITRATE=2000k
+AUDIO_BITRATE=128k
+
+## Setting Up the Persistent Volumes (PVC)
+vikash@Vikashs-MacBook-Pro Projects % code k8s/media-pvc.yaml
+vikash@Vikashs-MacBook-Pro Projects % cat k8s/media-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: media-storage
+  namespace: ai-forgestream
+
+spec:
+
+  accessModes:
+  - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 1Gi%                                                                                                                                                                                                         
+vikash@Vikashs-MacBook-Pro Projects % kubectl apply -f k8s/media-pvc.yaml
+persistentvolumeclaim/media-storage created
+# Verify StorageClass
+vikash@Vikashs-MacBook-Pro Projects % kubectl get storageclass
+NAME                 PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+hostpath             rancher.io/local-path   Delete          WaitForFirstConsumer   false                  65m
+standard (default)   rancher.io/local-path   Delete          WaitForFirstConsumer   false                  66m
+vikash@Vikashs-MacBook-Pro Projects % kubectl describe storageclass standard
+Name:            standard
+IsDefaultClass:  Yes
+Annotations:     kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"storage.k8s.io/v1","kind":"StorageClass","metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"},"name":"standard"},"provisioner":"rancher.io/local-path","reclaimPolicy":"Delete","volumeBindingMode":"WaitForFirstConsumer"}
+,storageclass.kubernetes.io/is-default-class=true
+Provisioner:           rancher.io/local-path
+Parameters:            <none>
+AllowVolumeExpansion:  <unset>
+MountOptions:          <none>
+ReclaimPolicy:         Delete
+VolumeBindingMode:     WaitForFirstConsumer
+Events:                <none>
+# Create a Job that uses the PVC
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/pvc-test-job.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/pvc-test-job.yaml
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: pvc-test
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: storage-test
+
+        image: alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "AI-ForgeStream Storage Test" > /data/test.txt
+          cat /data/test.txt
+
+        volumeMounts:
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1%                                                                                                                                                                                                          
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/pvc-test-job.yaml
+job.batch/pvc-test created
+ikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pvc -n ai-forgestream
+NAME            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+media-storage   Bound    pvc-ddafda19-805f-49d2-b35e-0342c80d6b65   1Gi        RWO            standard       <unset>                 7m45s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME                STATUS     COMPLETIONS   DURATION   AGE
+configmap-test      Complete   1/1           10s        17m
+ffmpeg-processing   Complete   1/1           3s         27m
+ffmpeg-version      Complete   1/1           10s        53m
+pvc-test            Complete   1/1           11s        21s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                      READY   STATUS      RESTARTS   AGE
+configmap-test-whl6l      0/1     Completed   0          18m
+ffmpeg-processing-jqhb7   0/1     Completed   0          27m
+ffmpeg-version-768w4      0/1     Completed   0          54m
+pvc-test-rxhrh            0/1     Completed   0          52s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream pvc-test-rxhrh 
+AI-ForgeStream Storage Test
+
+## Create Real FFmpeg Processing Job
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/ffmpeg-real-job.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/ffmpeg-real-job.yaml
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-real
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "Starting FFmpeg Processing"
+
+          ffmpeg \
+          -f lavfi \
+          -i testsrc=duration=10:size=1280x720:rate=30 \
+          -c:v libx264 \
+          /data/test-video.mp4
+
+          echo "Completed"
+
+          ls -lh /data
+
+        volumeMounts:
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1%                                                                                                                                                                                                          
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/ffmpeg-real-job.yaml
+job.batch/ffmpeg-real created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME                STATUS     COMPLETIONS   DURATION   AGE
+configmap-test      Complete   1/1           10s        23m
+ffmpeg-processing   Complete   1/1           3s         32m
+ffmpeg-real         Running    0/1           5s         5s
+ffmpeg-version      Complete   1/1           10s        59m
+pvc-test            Complete   1/1           11s        6m3s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                      READY   STATUS      RESTARTS   AGE
+configmap-test-whl6l      0/1     Completed   0          23m
+ffmpeg-processing-jqhb7   0/1     Completed   0          32m
+ffmpeg-real-m5tlm         0/1     Completed   0          11s
+ffmpeg-version-768w4      0/1     Completed   0          59m
+pvc-test-rxhrh            0/1     Completed   0          6m9s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream ffmpeg-real-m5tlm
+NAME                READY   STATUS      RESTARTS   AGE
+ffmpeg-real-m5tlm   0/1     Completed   0          57s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream ffmpeg-real-m5tlm
+Starting FFmpeg Processing
+ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 10.2.1 (Alpine 10.2.1_pre1) 20201203
+  configuration: --disable-debug --disable-doc --disable-ffplay --enable-fontconfig --enable-gpl --enable-libaom --enable-libaribb24 --enable-libass --enable-libbluray --enable-libfdk_aac --enable-libfreetype --enable-libkvazaar --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopus --enable-libsrt --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxvid --enable-libzmq --enable-nonfree --enable-openssl --enable-postproc --enable-shared --enable-small --enable-version3 --extra-cflags=-I/opt/ffmpeg/include --extra-ldflags=-L/opt/ffmpeg/lib --extra-libs=-ldl --extra-libs=-lpthread --prefix=/opt/ffmpeg
+  libavutil      58.  2.100 / 58.  2.100
+  libavcodec     60.  3.100 / 60.  3.100
+  libavformat    60.  3.100 / 60.  3.100
+  libavdevice    60.  1.100 / 60.  1.100
+  libavfilter     9.  3.100 /  9.  3.100
+  libswscale      7.  1.100 /  7.  1.100
+  libswresample   4. 10.100 /  4. 10.100
+  libpostproc    57.  1.100 / 57.  1.100
+Input #0, lavfi, from 'testsrc=duration=10:size=1280x720:rate=30':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Stream #0:0: Video: wrapped_avframe, rgb24, 1280x720 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr, 30 tbn
+Stream mapping:
+  Stream #0:0 -> #0:0 (wrapped_avframe (native) -> h264 (libx264))
+Press [q] to stop, [?] for help
+[libx264 @ 0x7f63b2f38840] using SAR=1/1
+[libx264 @ 0x7f63b2f38840] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 AVX2 LZCNT BMI2
+[libx264 @ 0x7f63b2f38840] profile High 4:4:4 Predictive, level 3.1, 4:4:4 8-bit
+[libx264 @ 0x7f63b2f38840] 264 - core 148 - H.264/MPEG-4 AVC codec - Copyleft 2003-2016 - http://www.videolan.org/x264.html - options: cabac=1 ref=3 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=7 psy=1 psy_rd=1.00:0.00 mixed_ref=1 me_range=16 chroma_me=1 trellis=1 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=4 threads=18 lookahead_threads=3 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=2 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=40 rc=crf mbtree=1 crf=23.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+Output #0, mp4, to '/data/test-video.mp4':
+  Metadata:
+    encoder         : Lavf60.3.100
+  Stream #0:0: Video: h264 (avc1 / 0x31637661), yuv444p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], q=2-31, 30 fps, 15360 tbn
+    Metadata:
+      encoder         : Lavc60.3.100 libx264
+    Side data:
+      cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+frame=  300 fps=125 q=-1.0 Lsize=     120kB time=00:00:09.90 bitrate=  99.2kbits/s speed=4.12x     
+video:116kB audio:0kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 3.751299%
+[libx264 @ 0x7f63b2f38840] frame I:2     Avg QP:12.01  size:  7763
+[libx264 @ 0x7f63b2f38840] frame P:77    Avg QP:13.08  size:   784
+[libx264 @ 0x7f63b2f38840] frame B:221   Avg QP:15.18  size:   189
+[libx264 @ 0x7f63b2f38840] consecutive B-frames:  1.3%  0.0%  4.0% 94.7%
+[libx264 @ 0x7f63b2f38840] mb I  I16..4: 62.6% 32.6%  4.8%
+[libx264 @ 0x7f63b2f38840] mb P  I16..4:  3.0%  0.8%  0.2%  P16..4:  3.9%  0.3%  0.0%  0.0%  0.0%    skip:91.7%
+[libx264 @ 0x7f63b2f38840] mb B  I16..4:  0.1%  0.0%  0.0%  B16..8:  2.9%  0.0%  0.0%  direct: 0.0%  skip:96.9%  L0:46.2% L1:52.9% BI: 0.9%
+[libx264 @ 0x7f63b2f38840] 8x8 transform intra:25.4% inter:73.2%
+[libx264 @ 0x7f63b2f38840] coded y,u,v intra: 2.8% 2.3% 2.5% inter: 0.0% 0.0% 0.0%
+[libx264 @ 0x7f63b2f38840] i16 v,h,dc,p: 78% 18%  0%  4%
+[libx264 @ 0x7f63b2f38840] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 42% 18% 40%  0%  0%  0%  0%  0%  0%
+[libx264 @ 0x7f63b2f38840] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 20% 50% 26%  1%  0%  1%  0%  1%  0%
+[libx264 @ 0x7f63b2f38840] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 0x7f63b2f38840] ref P L0: 64.6%  1.1% 23.6% 10.7%
+[libx264 @ 0x7f63b2f38840] ref B L0: 87.5% 11.3%  1.2%
+[libx264 @ 0x7f63b2f38840] ref B L1: 96.9%  3.1%
+[libx264 @ 0x7f63b2f38840] kb/s:94.15
+Completed
+total 124K   
+-rw-r--r--    1 root     root      119.9K Jun 19 19:35 test-video.mp4
+-rw-r--r--    1 root     root          28 Jun 19 19:29 test.txt

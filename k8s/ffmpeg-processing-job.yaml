@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-processing
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - sh
+
+        - -c
+
+        args:
+        - |
+          echo "Starting Processing";
+          ffmpeg -version;
+          echo "Processing Complete";
+
+  backoffLimit: 1
