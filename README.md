@@ -1,101 +1,107 @@
 # AI-ForgeStream
-## Project Vision
 
-AI-ForgeStream aims to bridge traditional OTT engineering expertise with modern cloud-native platform engineering practices.
+## Cloud-Native Media Processing Platform
 
-The long-term goal is to evolve from local FFmpeg processing into a Kubernetes-native media processing platform capable of supporting AI-enhanced workflows, scalable batch processing, and production-grade media services.
+AI-ForgeStream is a cloud-native media processing platform designed to demonstrate modern OTT, media engineering, platform engineering, Kubernetes, Terraform, and AI-enhanced media workflows.
 
+The project combines traditional media processing concepts with modern cloud-native infrastructure patterns used by large-scale streaming and media organizations.
 
-## Overview
+The long-term objective is to build a production-style reference architecture capable of supporting:
 
-AI-ForgeStream is a hands-on learning project designed to bridge traditional OTT media workflows with modern cloud-native platform engineering practices.
-
-This repository demonstrates how media processing workloads can be containerized and eventually orchestrated using Kubernetes.
-
-The project focuses on understanding the foundational concepts behind media processing pipelines that power modern streaming platforms.
+* Media ingestion
+* Audio and video processing
+* Containerized FFmpeg workloads
+* Kubernetes batch processing
+* Infrastructure as Code (Terraform)
+* Observability and monitoring
+* AI-assisted media enhancement
+* Cloud-native platform automation
 
 ---
-
-## Objectives
-
-* Learn FFmpeg fundamentals through practical examples.
-* Reconnect OTT domain knowledge with cloud-native technologies.
-* Build containerized media processing pipelines.
-* Prepare for Cloud Architect roles in media organizations such as Dolby.
-* Create a foundation for future AI-enhanced media workflows.
 
 ## Why This Project Exists
 
-With prior experience in OTT platforms and recent experience in CloudOps, DevOps, and SRE, this project was created to reconnect deep media domain knowledge with modern cloud-native engineering practices.
+Modern media platforms have evolved significantly:
 
-It serves as both a personal learning initiative and a practical demonstration of cloud architecture skills relevant to next-generation media platforms.
+```text
+Broadcast Systems
+        │
+        ▼
+OTT Platforms
+        │
+        ▼
+Cloud-Native Architectures
+        │
+        ▼
+Kubernetes Platforms
+        │
+        ▼
+AI-Augmented Media Systems
+```
+
+This project bridges traditional OTT knowledge with modern Cloud Architecture and Platform Engineering practices.
 
 ---
 
-# Architecture
+# Current Architecture
 
-```
+```text
 Input MP4
     │
     ▼
-FFmpeg Media Worker
+FFmpeg Processing
     │
-    ├── Audio Extraction
+    ▼
+Docker Container
     │
-    ├── Audio Normalization
-    │
-    └── Remuxing
+    ▼
+Kubernetes Job
     │
     ▼
 Enhanced Media Output
 ```
 
-## Target Architecture
+---
 
-```text
-              Upload API
-                   │
-                   ▼
-          Kubernetes Job Trigger
-                   │
-                   ▼
-          FFmpeg Processing Pods
-                   │
-          ┌────────┴─────────┐
-          ▼                  ▼
-   Audio Enhancement   Video Processing
-          │                  │
-          └────────┬─────────┘
-                   ▼
-            Processed Assets
-                   │
-                   ▼
-            CDN / Distribution
-```
+# Project Roadmap
+
+| Phase   | Status         | Description                 |
+| ------- | -------------- | --------------------------- |
+| Phase 1 | ✅ Complete     | FFmpeg Fundamentals         |
+| Phase 2 | ✅ Complete     | Docker Containerization     |
+| Phase 3 | 🚧 In Progress | Kubernetes Media Processing |
+| Phase 4 | Planned        | FastAPI Orchestration Layer |
+| Phase 5 | Planned        | Terraform Automation        |
+| Phase 6 | Planned        | Observability Platform      |
+| Phase 7 | Planned        | AI Media Enhancement        |
+| Phase 8 | Planned        | Cloud Deployment            |
 
 ---
 
-# Current Repository Structure
+# Repository Structure
 
-```
-AI-ForgeStream/
+```text
+AI-ForgeStream
 │
 ├── docker/
 │   └── Dockerfile
 │
-├── samples/
-│   └── input.mp4
-│
-├── outputs/
-│   ├── audio.wav
-│   ├── normalized.wav
-│   ├── enhanced.mp4
-│   ├── docker_audio.wav
-│   └── docker_normalized.wav
+├── k8s/
+│   ├── namespace.yaml
+│   ├── ffmpeg-version-job.yaml
+│   ├── storage.yaml
+│   └── audio-extract-job.yaml
 │
 ├── docs/
+│   ├── Phase1-FFmpeg-Fundamentals.md
+│   ├── Phase2-Docker-Containerization.md
+│   ├── Phase3-Kubernetes-Batch-Processing.md
 │
-├── k8s/
+├── scripts/
+│
+├── samples/
+│
+├── outputs/
 │
 ├── Commands.sh
 │
@@ -104,57 +110,43 @@ AI-ForgeStream/
 
 ---
 
-# Technologies Used
+# Technology Stack
 
-| Technology | Purpose                       |
-| ---------- | ----------------------------- |
-| FFmpeg     | Media processing              |
-| Docker     | Containerization              |
-| Kubernetes | Future orchestration          |
-| GitHub     | Source control                |
-| macOS      | Local development environment |
-
----
-
-# Prerequisites
-
-Install the following:
-
-## Docker Desktop
-
-Verify installation:
-
-```bash
-docker version
-```
+| Domain                  | Technology                         |
+| ----------------------- | ---------------------------------- |
+| Media Processing        | FFmpeg                             |
+| Containerization        | Docker                             |
+| Container Orchestration | Kubernetes                         |
+| Infrastructure as Code  | Terraform                          |
+| Source Control          | GitHub                             |
+| Programming             | Python                             |
+| API Layer               | FastAPI                            |
+| Cloud                   | AWS                                |
+| Observability           | Prometheus, Grafana, OpenTelemetry |
+| AI                      | Claude, Gemini, Bedrock            |
 
 ---
 
-## FFmpeg
+# Phase 1 — FFmpeg Fundamentals
 
-Verify installation:
+Objectives:
 
-```bash
-ffmpeg -version
-```
+* Learn media workflows
+* Understand codecs
+* Learn audio processing
+* Learn stream manipulation
 
----
+Topics Covered:
 
-## kubectl (Phase 2)
-
-Verify installation:
-
-```bash
-kubectl version --client
-```
-
----
-
-# Phase 1 – Local FFmpeg Training
+* Media inspection
+* Audio extraction
+* Audio normalization
+* Stream remuxing
+* Codec analysis
 
 ---
 
-## Inspect Media
+## Media Inspection
 
 ```bash
 ffprobe samples/input.mp4
@@ -162,23 +154,13 @@ ffprobe samples/input.mp4
 
 Purpose:
 
-* Understand codecs.
-* Identify video streams.
-* Identify audio streams.
-
-Example Output:
-
-```
-Video → H.264
-
-Audio → AAC
-```
+* Identify codecs
+* Inspect media streams
+* Analyze media metadata
 
 ---
 
-## Extract Audio
-
-Command:
+## Audio Extraction
 
 ```bash
 ffmpeg \
@@ -188,26 +170,20 @@ outputs/audio.wav
 
 Workflow:
 
-```
+```text
 MP4
  │
  ├── Video
  │
  └── Audio
-        │
-        ▼
-      WAV
+         │
+         ▼
+        WAV
 ```
-
-Purpose:
-
-Convert compressed AAC audio into an uncompressed WAV format suitable for processing.
 
 ---
 
-## Normalize Audio
-
-Command:
+## Audio Normalization
 
 ```bash
 ffmpeg \
@@ -216,27 +192,13 @@ ffmpeg \
 outputs/normalized.wav
 ```
 
-Workflow:
-
-```
-Input Audio
-      │
-      ▼
- Loudness Analysis
-      │
-      ▼
-Normalized Output
-```
-
 Purpose:
 
-Improve consistency of audio levels.
+Improve audio consistency and playback experience.
 
 ---
 
-## Remux Enhanced Audio
-
-Command:
+## Remux Enhanced Media
 
 ```bash
 ffmpeg \
@@ -250,35 +212,27 @@ outputs/enhanced.mp4
 
 Workflow:
 
-```
+```text
 Original Video
         │
         ▼
-Replace Audio Track
+Replace Audio
         │
         ▼
 Enhanced MP4
 ```
 
+---
+
+# Phase 2 — Docker Containerization
+
 Purpose:
 
-Combine processed audio with the original video stream.
+Package media processing workloads into portable runtime environments.
 
 ---
 
-# Phase 2 – Dockerized Media Processing
-
----
-
-## Dockerfile
-
-Location:
-
-```
-docker/Dockerfile
-```
-
-Contents:
+## Docker Image
 
 ```dockerfile
 FROM jrottenberg/ffmpeg:6.0-alpine
@@ -289,37 +243,17 @@ ENTRYPOINT []
 CMD ["sh"]
 ```
 
-Purpose:
-
-Create an interactive FFmpeg runtime environment.
-
 ---
 
-## Build Docker Image
-
-Command:
+## Build Image
 
 ```bash
 docker build -t ffmpeg-forge:1.0 docker/
 ```
 
-Verify:
-
-```bash
-docker images
-```
-
-Expected:
-
-```
-ffmpeg-forge    1.0
-```
-
 ---
 
-## Launch Container
-
-Command:
+## Run Container
 
 ```bash
 docker run -it \
@@ -327,34 +261,9 @@ docker run -it \
 ffmpeg-forge:1.0
 ```
 
-Purpose:
-
-Mount the local project directory into the container.
-
 ---
 
-## Verify Environment
-
-Inside the container:
-
-```bash
-ls
-```
-
-Expected:
-
-```
-docker
-docs
-k8s
-outputs
-samples
-README.md
-```
-
----
-
-Verify FFmpeg:
+## Verify FFmpeg
 
 ```bash
 which ffmpeg
@@ -362,96 +271,121 @@ which ffmpeg
 
 Expected:
 
-```
+```text
 /usr/local/bin/ffmpeg
 ```
 
 ---
 
-# Containerized Audio Extraction
+# Phase 3 — Kubernetes Media Processing
 
-Inside the container:
+Current Progress:
+
+* Namespace creation
+* Batch Job execution
+* FFmpeg validation inside Kubernetes
+* Pod lifecycle analysis
+
+---
+
+## Namespace
 
 ```bash
-ffmpeg \
--i samples/input.mp4 \
-outputs/docker_audio.wav
+kubectl create namespace ai-forgestream
 ```
 
-Purpose:
-
-Execute media processing entirely within Docker.
-
----
-
-# Containerized Audio Normalization
-
-Inside the container:
+Verify:
 
 ```bash
-ffmpeg \
--i outputs/docker_audio.wav \
--af loudnorm \
-outputs/docker_normalized.wav
+kubectl get ns
 ```
-
-Purpose:
-
-Apply loudness normalization inside the containerized runtime.
 
 ---
 
-# Verify Outputs
+## FFmpeg Validation Job
 
-Inside the container:
+```yaml
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-version
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - ffmpeg
+
+        args:
+        - -version
+
+  backoffLimit: 1
+```
+
+Apply:
 
 ```bash
-ls outputs
+kubectl apply -f k8s/ffmpeg-version-job.yaml
 ```
 
-Expected:
+Verify:
 
-```
-audio.wav
-docker_audio.wav
-enhanced.mp4
-normalized.wav
-docker_normalized.wav
+```bash
+kubectl get jobs -n ai-forgestream
+kubectl get pods -n ai-forgestream
+kubectl logs -n ai-forgestream <pod-name>
 ```
 
 ---
 
-## Sample Assets Included
+# Kubernetes Job Lifecycle
 
-This repository includes small media samples and generated outputs to demonstrate the end-to-end processing workflow.
-
-These artifacts are intended solely for educational and demonstration purposes.
-
+```text
+Job Created
+    │
+    ▼
+Pod Scheduled
+    │
+    ▼
+Container Starts
+    │
+    ▼
+FFmpeg Executes
+    │
+    ▼
+Exit Code 0
+    │
+    ▼
+Completed
 ```
-samples/input.mp4
-↓
-outputs/audio.wav
-↓
-outputs/normalized.wav
-↓
-outputs/enhanced.mp4
-```
-
-This enables reviewers to validate the processing pipeline without reproducing the lab locally.
 
 ---
 
-# Key Concepts Learned
+# OTT Concepts Covered
 
 ## Codec
 
-Algorithm used to compress and decompress media.
+Algorithm used for media compression and decompression.
 
 Examples:
 
 * H.264
 * H.265
 * AAC
+* Opus
 
 ---
 
@@ -463,121 +397,119 @@ Separating audio and video streams.
 
 ## Decoding
 
-Converting compressed media into raw data.
+Converting compressed media into raw media.
 
 ---
 
-## Loudness Normalization
+## Encoding
 
-Balancing audio levels for a better listening experience.
+Converting raw media into compressed media.
+
+---
+
+## Muxing
+
+Combining audio and video streams into a container.
 
 ---
 
 ## Remuxing
 
-Replacing or combining streams without re-encoding video.
+Replacing or combining streams without re-encoding.
+
+---
+
+## Loudness Normalization
+
+Balancing audio levels for improved playback quality.
 
 ---
 
 ## Containerization
 
-Packaging media workloads into portable environments.
+Packaging media workloads into reproducible environments.
 
 ---
 
-# Why This Matters
+# Future Architecture
 
-Modern media organizations increasingly rely on containerized processing pipelines.
-
-This project demonstrates:
-
-* Practical FFmpeg knowledge.
-* Media workflow understanding.
-* Docker fundamentals.
-* Platform engineering principles.
-
----
-
-# Future Roadmap
-
-## Phase 3
-
-Kubernetes-based FFmpeg Jobs.
-
-```
-Input Video
-      │
-      ▼
+```text
+User Upload
+     │
+     ▼
+FastAPI
+     │
+     ▼
 Kubernetes Job
-      │
-      ▼
-FFmpeg Pod
-      │
-      ▼
-Processed Output
+     │
+     ▼
+FFmpeg Worker
+     │
+     ▼
+Persistent Storage
+     │
+     ▼
+Processed Media
 ```
 
 ---
 
-## Phase 4
+# Future Enhancements
 
-FastAPI Upload Service.
+## FastAPI Orchestration
 
-```
-Upload
-   │
-   ▼
-API
-   │
-   ▼
-Kubernetes Job
-```
+* Upload API
+* Job creation API
+* Status API
 
 ---
 
-## Phase 5
-
-Terraform Infrastructure.
+## Terraform
 
 Provision:
 
-* Namespaces
-* Persistent Volumes
+* Namespace
 * RBAC
+* PVC
 * Jobs
+* Ingress
 
 ---
 
-## Phase 6
+## Observability
 
-AI-Enhanced Media Processing.
-
-Potential integrations:
-
-* Noise reduction.
-* Speech enhancement.
-* Subtitle generation.
-* Content intelligence.
+* Prometheus
+* Grafana
+* OpenTelemetry
 
 ---
 
-# Lessons Learned
+## AI Enhancements
 
-This project reinforced the relationship between traditional OTT concepts and modern cloud-native architectures.
+Potential features:
 
-The same media fundamentals continue to exist, but the execution environments have evolved:
+* Noise reduction
+* Speech enhancement
+* Subtitle generation
+* Content classification
+* Metadata extraction
+* AI-assisted audio restoration
 
-```
-Broadcast Systems
-        ↓
-Virtual Machines
-        ↓
-Containers
-        ↓
-Kubernetes
-        ↓
-AI-Augmented Media Platforms
-```
+---
+
+# Learning Objectives
+
+This project demonstrates practical experience across:
+
+* Cloud Architecture
+* Platform Engineering
+* DevOps
+* Site Reliability Engineering
+* OTT Systems
+* Kubernetes
+* Infrastructure Automation
+* Media Processing
+* AI-Augmented Engineering
 
 ---
 
@@ -587,4 +519,4 @@ Vikash Jaiswal
 
 Cloud Architect | Platform Engineer | DevOps | SRE
 
-Building bridges between OTT media systems and cloud-native platforms.
+Building the intersection of OTT Media Systems, Cloud-Native Platforms, and AI-Augmented Engineering.
