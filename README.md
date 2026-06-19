@@ -1,522 +1,302 @@
-# AI-ForgeStream
+# AI-ForgeStream: Automated Transcoding & Loudness Platform
 
-## Cloud-Native Media Processing Platform
-
-AI-ForgeStream is a cloud-native media processing platform designed to demonstrate modern OTT, media engineering, platform engineering, Kubernetes, Terraform, and AI-enhanced media workflows.
-
-The project combines traditional media processing concepts with modern cloud-native infrastructure patterns used by large-scale streaming and media organizations.
-
-The long-term objective is to build a production-style reference architecture capable of supporting:
-
-* Media ingestion
-* Audio and video processing
-* Containerized FFmpeg workloads
-* Kubernetes batch processing
-* Infrastructure as Code (Terraform)
-* Observability and monitoring
-* AI-assisted media enhancement
-* Cloud-native platform automation
+Welcome to **AI-ForgeStream**! This guide is designed to explain how our media platform works using clear, visual diagrams and step-by-step instructions. Whether you are a Broadcast Operator, a System Architect, or preparing for an engineering interview, this document breaks down the concepts, commands, and structures.
 
 ---
 
-## Why This Project Exists
+## 📂 Project Repository Tree
 
-Modern media platforms have evolved significantly:
-
-```text
-Broadcast Systems
-        │
-        ▼
-OTT Platforms
-        │
-        ▼
-Cloud-Native Architectures
-        │
-        ▼
-Kubernetes Platforms
-        │
-        ▼
-AI-Augmented Media Systems
-```
-
-This project bridges traditional OTT knowledge with modern Cloud Architecture and Platform Engineering practices.
-
----
-
-# Current Architecture
-
-```text
-Input MP4
-    │
-    ▼
-FFmpeg Processing
-    │
-    ▼
-Docker Container
-    │
-    ▼
-Kubernetes Job
-    │
-    ▼
-Enhanced Media Output
-```
-
----
-
-# Project Roadmap
-
-| Phase   | Status         | Description                 |
-| ------- | -------------- | --------------------------- |
-| Phase 1 | ✅ Complete     | FFmpeg Fundamentals         |
-| Phase 2 | ✅ Complete     | Docker Containerization     |
-| Phase 3 | 🚧 In Progress | Kubernetes Media Processing |
-| Phase 4 | Planned        | FastAPI Orchestration Layer |
-| Phase 5 | Planned        | Terraform Automation        |
-| Phase 6 | Planned        | Observability Platform      |
-| Phase 7 | Planned        | AI Media Enhancement        |
-| Phase 8 | Planned        | Cloud Deployment            |
-
----
-
-# Repository Structure
+Below is the directory structure of the project. It shows exactly where every component lives:
 
 ```text
 AI-ForgeStream
 │
+├── .agents/                      # AI Customization & Knowledge base (RAG)
+│   ├── MEMORY.md                 # Project architecture memory for quick retrieval
+│   └── skills/
+│       └── ai-forgestream-media/
+│           └── SKILL.md          # Special media instructions for LLMs
+│
+├── src/                          # Application Source Code
+│   ├── api/
+│   │   └── main.py               # FastAPI orchestrator control plane
+│   └── worker/
+│       └── processor.py          # Python FFmpeg transcode & loudness worker
+│
+├── k8s/                          # Kubernetes Manifests
+│   ├── namespace.yaml            # Isolated K8s namespace (ai-forgestream)
+│   ├── media-pvc.yaml            # Shared persistent volume claim (media-storage)
+│   ├── rbac.yaml                 # ServiceAccount, Roles, and Bindings
+│   ├── api-deployment.yaml       # FastAPI deployment spec
+│   ├── api-service.yaml          # LoadBalancer ingress service
+│   ├── ffmpeg-configmap.yaml     # ConfigMap for media settings
+│   ├── ffmpeg-version-job.yaml   # Validation job
+│   └── ffmpeg-real-job.yaml      # Real transcode job spec
+│
+├── terraform/                    # Infrastructure as Code (IaC)
+│   └── main.tf                   # Declares Namespace, PVC, RBAC, and ConfigMaps
+│
 ├── docker/
-│   └── Dockerfile
-│
-├── k8s/
-│   ├── namespace.yaml
-│   ├── ffmpeg-version-job.yaml
-│   ├── storage.yaml
-│   └── audio-extract-job.yaml
-│
-├── docs/
-│   ├── Phase1-FFmpeg-Fundamentals.md
-│   ├── Phase2-Docker-Containerization.md
-│   ├── Phase3-Kubernetes-Batch-Processing.md
-│
-├── scripts/
+│   └── Dockerfile                # Multi-role Alpine-Python image (with FFmpeg)
 │
 ├── samples/
+│   └── input.mp4                 # Source test video
 │
-├── outputs/
-│
-├── Commands.sh
-│
-└── README.md
+└── outputs/
+    └── hls_test/                 # Processed HLS output folders (1080p, 720p, 480p)
 ```
 
 ---
 
-# Technology Stack
+## 📖 Quick-Reference: Key Media Concepts
 
-| Domain                  | Technology                         |
-| ----------------------- | ---------------------------------- |
-| Media Processing        | FFmpeg                             |
-| Containerization        | Docker                             |
-| Container Orchestration | Kubernetes                         |
-| Infrastructure as Code  | Terraform                          |
-| Source Control          | GitHub                             |
-| Programming             | Python                             |
-| API Layer               | FastAPI                            |
-| Cloud                   | AWS                                |
-| Observability           | Prometheus, Grafana, OpenTelemetry |
-| AI                      | Claude, Gemini, Bedrock            |
+If you are asked about media processing in an interview, here is how you explain them in plain English:
 
----
+### 1. What is Loudness Normalization (ITU-R BS.1770-4 / EBU R128)?
+*   **The Problem**: Different video files have different sound levels. If a player transitions from a quiet movie to a loud commercial, it hurts the viewer's ears.
+*   **The Solution**: We don't just "turn up the volume" (peak normalization) because a single loud noise (like a gunshot) would make the rest of the file too quiet. Instead, we measure the *average perceived volume* over the entire file (Loudness Units Full Scale, or **LUFS**).
+*   **The Dolby Target**: Standard broadcast target is `-24.0 LUFS`. We also limit the maximum "True Peak" to `-2.0 dBTP` to prevent digital sound distortion.
 
-# Phase 1 — FFmpeg Fundamentals
+### 2. What is Adaptive Bitrate Streaming (ABR) & HLS?
+*   **The Problem**: A viewer might start watching on high-speed home Wi-Fi, then walk outside and drop to a weak 3G cellular signal. If we only stream one giant 1080p file, the video will freeze and buffer.
+*   **The Solution**: We transcode the source video into three different sizes (1080p, 720p, 480p) and slice each size into tiny **6-second clips** (segments). The video player automatically detects the user's internet speed and switches sizes on the fly.
+*   **Master Playlist (`master.m3u8`)**: The "index card" that tells the player where to find the playlists for 1080p, 720p, and 480p.
 
-Objectives:
-
-* Learn media workflows
-* Understand codecs
-* Learn audio processing
-* Learn stream manipulation
-
-Topics Covered:
-
-* Media inspection
-* Audio extraction
-* Audio normalization
-* Stream remuxing
-* Codec analysis
+### 3. What is GOP (Group of Pictures) & Keyframe Alignment?
+*   **The Problem**: Sliced HLS segments MUST start with a full, self-contained picture (called a Keyframe or I-frame). If a player switches from 1080p to 720p, but the 720p segment doesn't start at the exact same millisecond as the 1080p segment, the player will stutter or freeze.
+*   **The Solution**: We lock the keyframe interval (GOP size) to exactly **60 frames** (which is 2 seconds at 30fps) and disable scene change keyframe insertion (`-sc_threshold 0`). This ensures all resolutions cut their segments at the exact same frames, allowing seamless, silent quality switching!
 
 ---
 
-## Media Inspection
+## 🎨 Visual System Architecture & Process Flows
 
+### Diagram 1: High-Level Platform Topology (Block Diagram)
+This diagram shows how the user interacts with the FastAPI Control Plane, which orchestrates transcode jobs in the Kubernetes cluster using shared storage.
+
+```mermaid
+graph TD
+    Client([API Client / User]) -->|POST /jobs/submit| API[FastAPI Control Plane Pod]
+    API -->|Deploy Job Spec| KubeAPI[Kubernetes Control Plane]
+    KubeAPI -->|Create Worker Pod| Worker[FFmpeg Worker Job Pod]
+    
+    subgraph Storage Layer
+        PVC[(media-storage PVC)]
+    end
+    
+    API -->|Mounts /data| PVC
+    Worker -->|Mounts /data| PVC
+    
+    subgraph Compute Actions
+        Worker -->|Reads source video| PVC
+        Worker -->|Executes FFmpeg Transcoding| Worker
+        Worker -->|Writes m3u8 & segments| PVC
+        Worker -->|Writes metrics.json| PVC
+    end
+```
+
+---
+
+### Diagram 2: Step-by-Step Media Transcoding Pipeline (Flowchart)
+This diagram illustrates what happens inside the worker pod when a video is processed. It details the exact transition from raw input MP4 to the ABR HLS output.
+
+```mermaid
+flowchart TD
+    Start([Input MP4 Video]) --> Inspect[Step 1: Inspect Metadata via FFprobe]
+    Inspect --> Measure[Step 2: Measure Audio Loudness - Pass 1]
+    
+    subgraph audio_compliance ["Audio Compliance (BS.1770-4)"]
+        Measure --> Normalize[Step 3: Render Loudness Normalization - Pass 2]
+        Normalize --> Resample[Resample to 48kHz Stereo & Save Temp Audio]
+    end
+    
+    Resample --> Transcode{Step 4: Transcode Multi-Bitrate Ladder}
+    
+    subgraph abr_ladder ["ABR Ladder & HLS Slicing"]
+        Transcode --> T1080[1080p @ 4500kbps, GOP=60]
+        Transcode --> T720[720p @ 2200kbps, GOP=60]
+        Transcode --> T480[480p @ 800kbps, GOP=60]
+    end
+    
+    T1080 --> HLS1[Generate 1080p TS segments & m3u8]
+    T720 --> HLS2[Generate 720p TS segments & m3u8]
+    T480 --> HLS3[Generate 480p TS segments & m3u8]
+    
+    HLS1 --> Master[Step 5: Write HLS master.m3u8 index]
+    HLS2 --> Master
+    HLS3 --> Master
+    
+    Master --> Telemetry[Step 6: Write metrics.json report]
+    Telemetry --> End([Completed HLS Output])
+```
+
+---
+
+### Diagram 3: API Orchestration Sequence (Sequence Diagram)
+This diagram traces a single transcoding request from the initial API post to the final telemetry logging.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as API Client
+    participant API as FastAPI Control Plane
+    participant K8s as Kubernetes API
+    participant Worker as FFmpeg Worker Pod
+    participant Storage as Shared Storage (PVC)
+    
+    User->>API: POST /jobs/submit { input_file, output_dir }
+    Note over API: Load Kube Config & Validate Request
+    API->>K8s: Create Namespaced Job (V1Job Spec)
+    K8s-->>API: Return Job Name & UID
+    API-->>User: Return 201 Created (Job Name)
+    
+    Note over K8s: Schedule Worker Pod
+    K8s->>Worker: Start Pod (ffmpeg-forge:2.0)
+    Worker->>Storage: Mount PVC (/data)
+    Worker->>Storage: Read input file
+    
+    Note over Worker: Execute 2-Pass Loudness & Transcode
+    Worker->>Storage: Write HLS playlists and segments
+    Worker->>Storage: Write metrics.json
+    
+    Worker-->>K8s: Terminate Pod (Exit Code 0)
+    
+    loop Get Logs
+        User->>API: GET /jobs/logs/{job_name}
+        API->>K8s: Read Pod Log (read_namespaced_pod_log)
+        K8s-->>API: Return raw stdout/stderr logs
+        API-->>User: Return logs JSON
+    end
+```
+
+---
+
+## 🛠️ Operational Command Manual
+
+### Phase 1: Local Terminal Commands
+These are the manual commands you ran on your machine to process the test video (as documented in `Commands.sh`):
+
+#### 1. Inspect the media
+Check codecs, stream indices, and layouts:
 ```bash
 ffprobe samples/input.mp4
 ```
 
-Purpose:
+#### 2. Extract the raw audio track
+```bash
+ffmpeg -i samples/input.mp4 outputs/audio.wav
+```
 
-* Identify codecs
-* Inspect media streams
-* Analyze media metadata
+#### 3. Level the Audio (EBU R128 Loudnorm)
+```bash
+ffmpeg -i outputs/audio.wav -af loudnorm outputs/normalized.wav
+```
+
+#### 4. Merge (Mux) the leveled audio back with the original video
+```bash
+ffmpeg -i samples/input.mp4 -i outputs/normalized.wav -c:v copy -map 0:v:0 -map 1:a:0 outputs/enhanced.mp4
+```
 
 ---
 
-## Audio Extraction
+### Phase 2: Docker Containers
+
+#### 1. Build the unified Docker Image
+Build the container image tagged as `ffmpeg-forge:2.0`:
+```bash
+docker build -t ffmpeg-forge:2.0 -f docker/Dockerfile .
+```
+
+#### 2. Run the container and mount your project folder
+Run the container, linking your current directory (`$(pwd)`) to the container's workspace `/workspace`:
+```bash
+docker run -it -v $(pwd):/workspace ffmpeg-forge:2.0
+```
+
+---
+
+### Phase 3: Infrastructure Provisioning (Terraform IaC)
+
+Rather than applying Kubernetes configurations manually, you can use **Terraform** to deploy the infrastructure components as code:
+
+#### 1. Initialize Terraform Providers
+Installs the Kubernetes providers:
+```bash
+cd terraform
+terraform init
+```
+
+#### 2. Provision Resources
+Deploys the namespace, PersistentVolumeClaim, ServiceAccount, RBAC Roles, and ConfigMaps:
+```bash
+terraform apply -auto-approve
+cd ..
+```
+
+---
+
+### Phase 4: Running the Python Worker Script (Manual Run)
+
+You can run the Python transcode pipeline worker directly on your terminal to process a file and generate HLS segments:
 
 ```bash
-ffmpeg \
--i samples/input.mp4 \
-outputs/audio.wav
+python3 src/worker/processor.py \
+  --input samples/input.mp4 \
+  --output-dir outputs/hls_test \
+  --target-lufs -24.0
 ```
-
-Workflow:
-
-```text
-MP4
- │
- ├── Video
- │
- └── Audio
-         │
-         ▼
-        WAV
-```
+This script runs the 2-pass loudness normalization, creates the HLS segments, writes the master index, and creates a JSON quality report `metrics.json`.
 
 ---
 
-## Audio Normalization
+### Phase 5: Kubernetes Manual Deployments
+If you choose not to use Terraform, you can deploy the configurations manually:
 
+#### 1. Apply Namespace
 ```bash
-ffmpeg \
--i outputs/audio.wav \
--af loudnorm \
-outputs/normalized.wav
+kubectl apply -f k8s/namespace.yaml
 ```
 
-Purpose:
-
-Improve audio consistency and playback experience.
-
----
-
-## Remux Enhanced Media
-
+#### 2. Apply Storage Claim
 ```bash
-ffmpeg \
--i samples/input.mp4 \
--i outputs/normalized.wav \
--c:v copy \
--map 0:v:0 \
--map 1:a:0 \
-outputs/enhanced.mp4
+kubectl apply -f k8s/media-pvc.yaml
 ```
 
-Workflow:
-
-```text
-Original Video
-        │
-        ▼
-Replace Audio
-        │
-        ▼
-Enhanced MP4
-```
-
----
-
-# Phase 2 — Docker Containerization
-
-Purpose:
-
-Package media processing workloads into portable runtime environments.
-
----
-
-## Docker Image
-
-```dockerfile
-FROM jrottenberg/ffmpeg:6.0-alpine
-
-WORKDIR /workspace
-
-ENTRYPOINT []
-CMD ["sh"]
-```
-
----
-
-## Build Image
-
+#### 3. Apply RBAC Permissions
 ```bash
-docker build -t ffmpeg-forge:1.0 docker/
+kubectl apply -f k8s/rbac.yaml
 ```
 
----
-
-## Run Container
-
+#### 4. Deploy Control Plane API
 ```bash
-docker run -it \
--v $(pwd):/workspace \
-ffmpeg-forge:1.0
+kubectl apply -f k8s/api-deployment.yaml
+kubectl apply -f k8s/api-service.yaml
 ```
 
----
-
-## Verify FFmpeg
-
+Check deployment status:
 ```bash
-which ffmpeg
-```
-
-Expected:
-
-```text
-/usr/local/bin/ffmpeg
+kubectl get all -n ai-forgestream
 ```
 
 ---
 
-# Phase 3 — Kubernetes Media Processing
+### Phase 6: Interacting with the API Gateway
 
-Current Progress:
+Once the API Gateway is deployed (running on `http://localhost:8000`), use the following endpoints:
 
-* Namespace creation
-* Batch Job execution
-* FFmpeg validation inside Kubernetes
-* Pod lifecycle analysis
-
----
-
-## Namespace
-
+#### 1. Submit a Job
+Submits a media asset to be processed. The API gateway generates a Kubernetes Batch Job dynamically.
 ```bash
-kubectl create namespace ai-forgestream
+curl -X POST http://localhost:8000/jobs/submit \
+  -H "Content-Type: application/json" \
+  -d '{"input_file": "input.mp4", "output_dir": "hls_test", "target_lufs": -24.0}'
 ```
 
-Verify:
-
+#### 2. Query Job Status
 ```bash
-kubectl get ns
+curl http://localhost:8000/jobs/status/transcode-job-<ID>
 ```
 
----
-
-## FFmpeg Validation Job
-
-```yaml
-apiVersion: batch/v1
-kind: Job
-
-metadata:
-  name: ffmpeg-version
-  namespace: ai-forgestream
-
-spec:
-
-  template:
-
-    spec:
-
-      restartPolicy: Never
-
-      containers:
-
-      - name: ffmpeg
-
-        image: jrottenberg/ffmpeg:6.0-alpine
-
-        command:
-        - ffmpeg
-
-        args:
-        - -version
-
-  backoffLimit: 1
-```
-
-Apply:
-
+#### 3. Fetch Worker Logs
 ```bash
-kubectl apply -f k8s/ffmpeg-version-job.yaml
+curl http://localhost:8000/jobs/logs/transcode-job-<ID>
 ```
-
-Verify:
-
-```bash
-kubectl get jobs -n ai-forgestream
-kubectl get pods -n ai-forgestream
-kubectl logs -n ai-forgestream <pod-name>
-```
-
----
-
-# Kubernetes Job Lifecycle
-
-```text
-Job Created
-    │
-    ▼
-Pod Scheduled
-    │
-    ▼
-Container Starts
-    │
-    ▼
-FFmpeg Executes
-    │
-    ▼
-Exit Code 0
-    │
-    ▼
-Completed
-```
-
----
-
-# OTT Concepts Covered
-
-## Codec
-
-Algorithm used for media compression and decompression.
-
-Examples:
-
-* H.264
-* H.265
-* AAC
-* Opus
-
----
-
-## Demuxing
-
-Separating audio and video streams.
-
----
-
-## Decoding
-
-Converting compressed media into raw media.
-
----
-
-## Encoding
-
-Converting raw media into compressed media.
-
----
-
-## Muxing
-
-Combining audio and video streams into a container.
-
----
-
-## Remuxing
-
-Replacing or combining streams without re-encoding.
-
----
-
-## Loudness Normalization
-
-Balancing audio levels for improved playback quality.
-
----
-
-## Containerization
-
-Packaging media workloads into reproducible environments.
-
----
-
-# Future Architecture
-
-```text
-User Upload
-     │
-     ▼
-FastAPI
-     │
-     ▼
-Kubernetes Job
-     │
-     ▼
-FFmpeg Worker
-     │
-     ▼
-Persistent Storage
-     │
-     ▼
-Processed Media
-```
-
----
-
-# Future Enhancements
-
-## FastAPI Orchestration
-
-* Upload API
-* Job creation API
-* Status API
-
----
-
-## Terraform
-
-Provision:
-
-* Namespace
-* RBAC
-* PVC
-* Jobs
-* Ingress
-
----
-
-## Observability
-
-* Prometheus
-* Grafana
-* OpenTelemetry
-
----
-
-## AI Enhancements
-
-Potential features:
-
-* Noise reduction
-* Speech enhancement
-* Subtitle generation
-* Content classification
-* Metadata extraction
-* AI-assisted audio restoration
-
----
-
-# Learning Objectives
-
-This project demonstrates practical experience across:
-
-* Cloud Architecture
-* Platform Engineering
-* DevOps
-* Site Reliability Engineering
-* OTT Systems
-* Kubernetes
-* Infrastructure Automation
-* Media Processing
-* AI-Augmented Engineering
-
----
-
-# Author
-
-Vikash Jaiswal
-
-Cloud Architect | Platform Engineer | DevOps | SRE
-
-Building the intersection of OTT Media Systems, Cloud-Native Platforms, and AI-Augmented Engineering.

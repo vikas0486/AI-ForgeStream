@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-forgestream-api
+  namespace: ai-forgestream
+  labels:
+    app: ai-forgestream-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-forgestream-api
+  template:
+    metadata:
+      labels:
+        app: ai-forgestream-api
+    spec:
+      serviceAccountName: ai-forgestream-api-sa
+      containers:
+        - name: api
+          image: ffmpeg-forge:2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: K8S_NAMESPACE
+              value: "ai-forgestream"
+            - name: WORKER_IMAGE
+              value: "ffmpeg-forge:2.0"
+          volumeMounts:
+            - name: media-data
+              mountPath: /data
+      volumes:
+        - name: media-data
+          persistentVolumeClaim:
+            claimName: media-storage
