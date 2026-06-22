@@ -1,0 +1,32 @@
+# k8s/debug-pvc-pod.yaml
+
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: debug-pvc
+  namespace: ai-forgestream
+
+spec:
+
+  containers:
+
+  - name: debug
+
+    image: alpine
+
+    command:
+    - sleep
+    - "3600"
+
+    volumeMounts:
+
+    - name: media-storage
+      mountPath: /data
+
+  volumes:
+
+  - name: media-storage
+
+    persistentVolumeClaim:
+      claimName: media-storage

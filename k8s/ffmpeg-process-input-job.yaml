@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-process-input
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "==================================="
+          echo "AI-ForgeStream Processing Started"
+          echo "==================================="
+
+          echo "Step 1: Extract Audio"
+
+          ffmpeg \
+          -i /data/input.mp4 \
+          -vn \
+          /data/audio.wav
+
+          echo "Step 2: Normalize Audio"
+
+          ffmpeg \
+          -i /data/audio.wav \
+          -af loudnorm \
+          /data/normalized.wav
+
+          echo "Step 3: Create Enhanced Video"
+
+          ffmpeg \
+          -i /data/input.mp4 \
+          -i /data/normalized.wav \
+          -c:v copy \
+          -map 0:v:0 \
+          -map 1:a:0 \
+          /data/enhanced.mp4
+
+          echo "==================================="
+          echo "Processing Completed"
+          echo "==================================="
+
+          ls -lh /data
+
+        volumeMounts:
+
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+
+      - name: media-storage
+
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1

@@ -1078,3 +1078,405 @@ Completed
 total 124K   
 -rw-r--r--    1 root     root      119.9K Jun 19 19:35 test-video.mp4
 -rw-r--r--    1 root     root          28 Jun 19 19:29 test.txt
+
+## K8 Persistent Volume storage creation
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/media-pvc.yaml 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-storage
+  namespace: ai-forgestream
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi%                                                                                                                                                                                                         
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/media-pvc.yaml
+persistentvolumeclaim/media-storage unchanged
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pvc -n ai-forgestream  
+NAME            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+media-storage   Bound    pvc-ddafda19-805f-49d2-b35e-0342c80d6b65   1Gi        RWO            standard       <unset>                 3d2h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
+
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/pvc-test-job.yaml
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: pvc-test
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: storage-test
+
+        image: alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "AI-ForgeStream Storage Test" > /data/test.txt
+          cat /data/test.txt
+
+        volumeMounts:
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+      - name: media-storage
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1%                                                                                                                                                                                                          
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/pvc-test-job.yaml
+job.batch/pvc-test unchanged
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pvc -n ai-forgestream
+NAME            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+media-storage   Bound    pvc-ddafda19-805f-49d2-b35e-0342c80d6b65   1Gi        RWO            standard       <unset>                 3d2h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
+
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME                STATUS     COMPLETIONS   DURATION   AGE
+configmap-test      Complete   1/1           10s        3d2h
+ffmpeg-processing   Complete   1/1           3s         3d3h
+ffmpeg-real         Complete   1/1           6s         3d2h
+ffmpeg-version      Complete   1/1           10s        3d3h
+pvc-test            Complete   1/1           11s        3d2h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                      READY   STATUS      RESTARTS   AGE
+configmap-test-whl6l      0/1     Completed   0          3d2h
+ffmpeg-processing-jqhb7   0/1     Completed   0          3d3h
+ffmpeg-real-m5tlm         0/1     Completed   0          3d2h
+ffmpeg-version-768w4      0/1     Completed   0          3d3h
+pvc-test-rxhrh            0/1     Completed   0          3d2h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream pvc-test-rxhrh
+AI-ForgeStream Storage Test
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
+
+## Debugging PVC
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/debug-pvc-pod.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/debug-pvc-pod.yaml
+# k8s/debug-pvc-pod.yaml
+
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: debug-pvc
+  namespace: ai-forgestream
+
+spec:
+
+  containers:
+
+  - name: debug
+
+    image: alpine
+
+    command:
+    - sleep
+    - "3600"
+
+    volumeMounts:
+
+    - name: media-storage
+      mountPath: /data
+
+  volumes:
+
+  - name: media-storage
+
+    persistentVolumeClaim:
+      claimName: media-storage%                                                                                                                                                                                             
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/debug-pvc-pod.yaml
+pod/debug-pvc created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl exec -it debug-pvc -n ai-forgestream -- sh
+/ # ls
+bin           dev           home          media         opt           product_uuid  run           srv           tmp           var
+data          etc           lib           mnt           proc          root          sbin          sys           usr
+/ # ls -lah /data
+total 132K   
+drwxrwxrwx    2 root     root        4.0K Jun 19 19:35 .
+drwxr-xr-x    1 root     root        4.0K Jun 22 22:13 ..
+-rw-r--r--    1 root     root      119.9K Jun 19 19:35 test-video.mp4
+-rw-r--r--    1 root     root          28 Jun 19 19:29 test.txt
+/ # 
+
+## Processing Real vedio with K8 Pod and PVC Volume
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % ls -lh samples/input.mp4
+-rw-r--r--@ 1 vikash  staff    15M Jun 16 22:39 samples/input.mp4
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl cp samples/input.mp4 ai-forgestream/debug-pvc:/data/input.mp4 
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl exec -it debug-pvc -n ai-forgestream -- sh
+/ # ls -lh /data
+total 16M    
+-rw-r--r--    1 501      dialout    15.4M Jun 22 22:19 input.mp4
+-rw-r--r--    1 root     root      119.9K Jun 19 19:35 test-video.mp4
+-rw-r--r--    1 root     root          28 Jun 19 19:29 test.txt
+/ # 
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % code k8s/ffmpeg-process-input-job.yaml
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/ffmpeg-process-input-job.yaml
+job.batch/ffmpeg-process-input created
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat k8s/ffmpeg-process-input-job.yaml          
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ffmpeg-process-input
+  namespace: ai-forgestream
+
+spec:
+
+  template:
+
+    spec:
+
+      restartPolicy: Never
+
+      containers:
+
+      - name: ffmpeg
+
+        image: jrottenberg/ffmpeg:6.0-alpine
+
+        command:
+        - sh
+        - -c
+
+        args:
+        - |
+          echo "==================================="
+          echo "AI-ForgeStream Processing Started"
+          echo "==================================="
+
+          echo "Step 1: Extract Audio"
+
+          ffmpeg \
+          -i /data/input.mp4 \
+          -vn \
+          /data/audio.wav
+
+          echo "Step 2: Normalize Audio"
+
+          ffmpeg \
+          -i /data/audio.wav \
+          -af loudnorm \
+          /data/normalized.wav
+
+          echo "Step 3: Create Enhanced Video"
+
+          ffmpeg \
+          -i /data/input.mp4 \
+          -i /data/normalized.wav \
+          -c:v copy \
+          -map 0:v:0 \
+          -map 1:a:0 \
+          /data/enhanced.mp4
+
+          echo "==================================="
+          echo "Processing Completed"
+          echo "==================================="
+
+          ls -lh /data
+
+        volumeMounts:
+
+        - name: media-storage
+          mountPath: /data
+
+      volumes:
+
+      - name: media-storage
+
+        persistentVolumeClaim:
+          claimName: media-storage
+
+  backoffLimit: 1%                                                                                                                                                                                                          
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl apply -f k8s/ffmpeg-process-input-job.yaml
+job.batch/ffmpeg-process-input unchanged
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME                   STATUS     COMPLETIONS   DURATION   AGE
+ffmpeg-process-input   Complete   1/1           9s         15s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                         READY   STATUS      RESTARTS   AGE
+debug-pvc                    1/1     Running     0          13m
+ffmpeg-process-input-g9s2g   0/1     Completed   0          31s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl logs -n ai-forgestream ffmpeg-process-input-g9s2g 
+===================================
+AI-ForgeStream Processing Started
+===================================
+Step 1: Extract Audio
+ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 10.2.1 (Alpine 10.2.1_pre1) 20201203
+  configuration: --disable-debug --disable-doc --disable-ffplay --enable-fontconfig --enable-gpl --enable-libaom --enable-libaribb24 --enable-libass --enable-libbluray --enable-libfdk_aac --enable-libfreetype --enable-libkvazaar --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopus --enable-libsrt --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxvid --enable-libzmq --enable-nonfree --enable-openssl --enable-postproc --enable-shared --enable-small --enable-version3 --extra-cflags=-I/opt/ffmpeg/include --extra-ldflags=-L/opt/ffmpeg/lib --extra-libs=-ldl --extra-libs=-lpthread --prefix=/opt/ffmpeg
+  libavutil      58.  2.100 / 58.  2.100
+  libavcodec     60.  3.100 / 60.  3.100
+  libavformat    60.  3.100 / 60.  3.100
+  libavdevice    60.  1.100 / 60.  1.100
+  libavfilter     9.  3.100 /  9.  3.100
+  libswscale      7.  1.100 /  7.  1.100
+  libswresample   4. 10.100 /  4. 10.100
+  libpostproc    57.  1.100 / 57.  1.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/data/input.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf58.29.100
+  Duration: 00:01:00.14, start: 0.000000, bitrate: 2152 kb/s
+  Stream #0:0[0x1](und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 2020 kb/s, 25.02 fps, 25 tbr, 90k tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Stream mapping:
+  Stream #0:1 -> #0:0 (aac (native) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+Output #0, wav, to '/data/audio.wav':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    ISFT            : Lavf60.3.100
+  Stream #0:0(und): Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.3.100 pcm_s16le
+size=   10360kB time=00:01:00.11 bitrate=1411.8kbits/s speed= 268x    
+video:0kB audio:10360kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000735%
+Step 2: Normalize Audio
+ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 10.2.1 (Alpine 10.2.1_pre1) 20201203
+  configuration: --disable-debug --disable-doc --disable-ffplay --enable-fontconfig --enable-gpl --enable-libaom --enable-libaribb24 --enable-libass --enable-libbluray --enable-libfdk_aac --enable-libfreetype --enable-libkvazaar --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopus --enable-libsrt --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxvid --enable-libzmq --enable-nonfree --enable-openssl --enable-postproc --enable-shared --enable-small --enable-version3 --extra-cflags=-I/opt/ffmpeg/include --extra-ldflags=-L/opt/ffmpeg/lib --extra-libs=-ldl --extra-libs=-lpthread --prefix=/opt/ffmpeg
+  libavutil      58.  2.100 / 58.  2.100
+  libavcodec     60.  3.100 / 60.  3.100
+  libavformat    60.  3.100 / 60.  3.100
+  libavdevice    60.  1.100 / 60.  1.100
+  libavfilter     9.  3.100 /  9.  3.100
+  libswscale      7.  1.100 /  7.  1.100
+  libswresample   4. 10.100 /  4. 10.100
+  libpostproc    57.  1.100 / 57.  1.100
+Guessed Channel Layout for Input Stream #0.0 : stereo
+Input #0, wav, from '/data/audio.wav':
+  Metadata:
+    encoder         : Lavf60.3.100
+  Duration: 00:01:00.14, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, 2 channels, s16, 1411 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+Output #0, wav, to '/data/normalized.wav':
+  Metadata:
+    ISFT            : Lavf60.3.100
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 192000 Hz, stereo, s16, 6144 kb/s
+    Metadata:
+      encoder         : Lavc60.3.100 pcm_s16le
+size=   45105kB time=00:00:57.30 bitrate=6448.5kbits/s speed=  21x       
+video:0kB audio:45105kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000221%
+Step 3: Create Enhanced Video
+ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 10.2.1 (Alpine 10.2.1_pre1) 20201203
+  configuration: --disable-debug --disable-doc --disable-ffplay --enable-fontconfig --enable-gpl --enable-libaom --enable-libaribb24 --enable-libass --enable-libbluray --enable-libfdk_aac --enable-libfreetype --enable-libkvazaar --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libopus --enable-libsrt --enable-libtheora --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxcb --enable-libxvid --enable-libzmq --enable-nonfree --enable-openssl --enable-postproc --enable-shared --enable-small --enable-version3 --extra-cflags=-I/opt/ffmpeg/include --extra-ldflags=-L/opt/ffmpeg/lib --extra-libs=-ldl --extra-libs=-lpthread --prefix=/opt/ffmpeg
+  libavutil      58.  2.100 / 58.  2.100
+  libavcodec     60.  3.100 / 60.  3.100
+  libavformat    60.  3.100 / 60.  3.100
+  libavdevice    60.  1.100 / 60.  1.100
+  libavfilter     9.  3.100 /  9.  3.100
+  libswscale      7.  1.100 /  7.  1.100
+  libswresample   4. 10.100 /  4. 10.100
+  libpostproc    57.  1.100 / 57.  1.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/data/input.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf58.29.100
+  Duration: 00:01:00.14, start: 0.000000, bitrate: 2152 kb/s
+  Stream #0:0[0x1](und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 2020 kb/s, 25.02 fps, 25 tbr, 90k tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Input #1, wav, from '/data/normalized.wav':
+  Metadata:
+    encoder         : Lavf60.3.100
+  Duration: 00:01:00.14, bitrate: 6144 kb/s
+  Stream #1:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 192000 Hz, stereo, s16, 6144 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (copy)
+  Stream #1:0 -> #0:1 (pcm_s16le (native) -> aac (native))
+Press [q] to stop, [?] for help
+Output #0, mp4, to '/data/enhanced.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.3.100
+  Stream #0:0(und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], q=2-31, 2020 kb/s, 25.02 fps, 25 tbr, 90k tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+  Stream #0:1: Audio: aac (mp4a / 0x6134706D), 96000 Hz, stereo, fltp, 128 kb/s
+    Metadata:
+      encoder         : Lavc60.3.100 aac
+frame= 1503 fps=618 q=-1.0 Lsize=   15829kB time=00:01:00.13 bitrate=2156.2kbits/s speed=24.7x      
+video:14814kB audio:953kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.395741%
+[aac @ 0x7f42e42a54c0] Qavg: 715.003
+===================================
+Processing Completed
+===================================
+total 85M    
+-rw-r--r--    1 root     root       10.1M Jun 22 22:25 audio.wav
+-rw-r--r--    1 root     root       15.5M Jun 22 22:25 enhanced.mp4
+-rw-r--r--    1 501      dialout    15.4M Jun 22 22:19 input.mp4
+-rw-r--r--    1 root     root       44.0M Jun 22 22:25 normalized.wav
+-rw-r--r--    1 root     root      119.9K Jun 19 19:35 test-video.mp4
+-rw-r--r--    1 root     root          28 Jun 19 19:29 test.txt
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl exec -it debug-pvc -n ai-forgestream -- sh
+/ # ls -lh /data
+total 85M    
+-rw-r--r--    1 root     root       10.1M Jun 22 22:25 audio.wav
+-rw-r--r--    1 root     root       15.5M Jun 22 22:25 enhanced.mp4
+-rw-r--r--    1 501      dialout    15.4M Jun 22 22:19 input.mp4
+-rw-r--r--    1 root     root       44.0M Jun 22 22:25 normalized.wav
+-rw-r--r--    1 root     root      119.9K Jun 19 19:35 test-video.mp4
+-rw-r--r--    1 root     root          28 Jun 19 19:29 test.txt
+/ # 
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl cp ai-forgestream/debug-pvc:/data/enhanced.mp4 outputs/k8s-enhanced.mp4 
+tar: removing leading '/' from member names
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % ls -ltr outputs/*
+-rw-r--r--  1 vikash  staff  10608718 Jun 16 23:37 outputs/docker_audio.wav
+-rw-r--r--  1 vikash  staff  46187382 Jun 16 23:37 outputs/docker_normalized.wav
+-rw-r--r--  1 vikash  staff  16208814 Jun 19 23:13 outputs/docker_enhanced.mp4
+-rw-r--r--@ 1 vikash  staff  10608718 Jun 19 23:20 outputs/audio.wav
+-rw-r--r--@ 1 vikash  staff  46187382 Jun 19 23:20 outputs/normalized.wav
+-rw-r--r--@ 1 vikash  staff  16208814 Jun 19 23:20 outputs/enhanced.mp4
+-rw-r--r--@ 1 vikash  staff  16208814 Jun 23 03:58 outputs/k8s-enhanced.mp4
+
+outputs/hls_test:
+total 16
+drwxr-xr-x@ 14 vikash  staff  448 Jun 20 01:26 1080p
+drwxr-xr-x@ 14 vikash  staff  448 Jun 20 01:26 720p
+drwxr-xr-x@ 14 vikash  staff  448 Jun 20 01:27 480p
+-rw-r--r--@  1 vikash  staff  346 Jun 20 01:27 master.m3u8
+-rw-r--r--@  1 vikash  staff  821 Jun 20 01:27 metrics.json
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
