@@ -171,6 +171,713 @@ sequenceDiagram
 ---
 
 ## 🛠️ Operational Command Manual
+# AI-ForgeStream
+
+AI-ForgeStream is a Kubernetes-native media processing platform built using Terraform, Kubernetes, FFmpeg, and AWS-ready architecture principles.
+
+The project demonstrates Infrastructure as Code (IaC), Persistent Storage Management, RBAC, Kubernetes Jobs, and Media Processing Pipelines.
+
+---
+
+# Architecture
+
+```text
+User
+ │
+ ▼
+Input Video
+ │
+ ▼
+Persistent Volume Claim (PVC)
+ │
+ ▼
+Kubernetes Job (FFmpeg)
+ │
+ ├── Extract Audio
+ ├── Normalize Audio
+ └── Create Enhanced Video
+ │
+ ▼
+Output Media
+ │
+ ▼
+Persistent Volume Claim (PVC)
+```
+
+---
+
+# Technology Stack
+
+* Terraform
+* Kubernetes
+* Rancher Desktop
+* FFmpeg
+* Persistent Volumes
+* RBAC
+* Service Accounts
+* ConfigMaps
+* Docker
+
+---
+
+# Project Structure
+
+```text
+AI-ForgeStream
+│
+├── terraform
+│   ├── provider.tf
+│   ├── namespace.tf
+│   ├── configmap.tf
+│   ├── pvc.tf
+│   ├── rbac.tf
+│   ├── outputs.tf
+│   └── terraform.tfstate
+│
+├── k8s
+│   ├── debug-pvc-pod.yaml
+│   └── ffmpeg-process-input-job.yaml
+│
+├── samples
+│   └── input.mp4
+│
+├── outputs
+│   └── terraform-enhanced.mp4
+│
+└── README.md
+```
+
+---
+
+# Phase 1 - Environment Setup
+
+## Verify Kubernetes
+
+```bash
+kubectl cluster-info
+```
+
+Expected:
+
+```bash
+Kubernetes control plane is running
+```
+
+---
+
+## Verify Terraform
+
+```bash
+terraform version
+```
+
+Expected:
+
+```bash
+Terraform v1.x.x
+```
+
+---
+
+## Verify Storage Class
+
+```bash
+kubectl get storageclass
+```
+
+Expected:
+
+```bash
+standard (default)
+```
+
+---
+
+# Phase 2 - Terraform Infrastructure
+
+## Initialize Terraform
+
+```bash
+terraform init
+```
+
+Expected:
+
+```bash
+Terraform has been successfully initialized
+```
+
+---
+
+## Validate Configuration
+
+```bash
+terraform validate
+```
+
+Expected:
+
+```bash
+Success! The configuration is valid.
+```
+
+---
+
+## Review Plan
+
+```bash
+terraform plan
+```
+
+---
+
+## Deploy Infrastructure
+
+```bash
+terraform apply
+```
+
+---
+
+# Resources Created
+
+## Namespace
+
+```text
+ai-forgestream
+```
+
+---
+
+## ConfigMap
+
+```text
+ffmpeg-config
+```
+
+Contains:
+
+```text
+VIDEO_CODEC=libx264
+AUDIO_CODEC=aac
+VIDEO_BITRATE=2000k
+AUDIO_BITRATE=128k
+```
+
+---
+
+## Persistent Volume Claim
+
+```text
+media-storage
+```
+
+Size:
+
+```text
+1Gi
+```
+
+---
+
+## Service Account
+
+```text
+ai-forgestream-api-sa
+```
+
+---
+
+## Role
+
+```text
+job-manager-role
+```
+
+Permissions:
+
+```text
+Jobs
+Pods
+Pod Logs
+```
+
+---
+
+## Role Binding
+
+```text
+job-manager-role-binding
+```
+
+---
+
+# Verify Infrastructure
+
+## Namespace
+
+```bash
+kubectl get ns ai-forgestream
+```
+
+---
+
+## ConfigMap
+
+```bash
+kubectl get configmap -n ai-forgestream
+```
+
+---
+
+## PVC
+
+```bash
+kubectl get pvc -n ai-forgestream
+```
+
+Expected:
+
+```bash
+STATUS: Bound
+```
+
+---
+
+## Service Account
+
+```bash
+kubectl get sa -n ai-forgestream
+```
+
+---
+
+## Role
+
+```bash
+kubectl get role -n ai-forgestream
+```
+
+---
+
+## Role Binding
+
+```bash
+kubectl get rolebinding -n ai-forgestream
+```
+
+---
+
+# Phase 3 - Terraform State Management
+
+## Import Existing Resources
+
+Namespace
+
+```bash
+terraform import kubernetes_namespace.ai_forgestream ai-forgestream
+```
+
+ConfigMap
+
+```bash
+terraform import kubernetes_config_map.ffmpeg_config ai-forgestream/ffmpeg-config
+```
+
+PVC
+
+```bash
+terraform import kubernetes_persistent_volume_claim.media_storage ai-forgestream/media-storage
+```
+
+---
+
+## View State
+
+```bash
+terraform state list
+```
+
+Expected:
+
+```text
+kubernetes_namespace.ai_forgestream
+kubernetes_config_map.ffmpeg_config
+kubernetes_persistent_volume_claim.media_storage
+kubernetes_role.job_manager_role
+kubernetes_role_binding.job_manager_binding
+kubernetes_service_account.api_sa
+```
+
+---
+
+## Refresh State
+
+```bash
+terraform apply -refresh-only
+```
+
+Expected:
+
+```bash
+No changes.
+```
+
+---
+
+# Phase 4 - Media Processing Pipeline
+
+## Create Debug Pod
+
+```bash
+kubectl apply -f k8s/debug-pvc-pod.yaml
+```
+
+Verify:
+
+```bash
+kubectl get pods -n ai-forgestream
+```
+
+Expected:
+
+```text
+debug-pvc Running
+```
+
+---
+
+## Copy Input Video
+
+```bash
+kubectl cp samples/input.mp4 ai-forgestream/debug-pvc:/data/input.mp4
+```
+
+---
+
+## Verify File
+
+```bash
+kubectl exec -it debug-pvc -n ai-forgestream -- ls -lh /data
+```
+
+Expected:
+
+```text
+input.mp4
+```
+
+---
+
+## Run FFmpeg Job
+
+```bash
+kubectl apply -f k8s/ffmpeg-process-input-job.yaml
+```
+
+---
+
+## Monitor Job
+
+```bash
+kubectl get jobs -n ai-forgestream
+```
+
+Expected:
+
+```text
+ffmpeg-process-input Complete
+```
+
+---
+
+## View Job Pod
+
+```bash
+kubectl get pods -n ai-forgestream
+```
+
+Example:
+
+```text
+ffmpeg-process-input-xxxxx
+```
+
+---
+
+## View Logs
+
+```bash
+kubectl logs ffmpeg-process-input-xxxxx -n ai-forgestream
+```
+
+Expected:
+
+```text
+Step 1: Extract Audio
+Step 2: Normalize Audio
+Step 3: Create Enhanced Video
+Processing Completed
+```
+
+---
+
+# Verify Generated Files
+
+Connect to Debug Pod:
+
+```bash
+kubectl exec -it debug-pvc -n ai-forgestream -- sh
+```
+
+List files:
+
+```bash
+ls -lh /data
+```
+
+Expected:
+
+```text
+input.mp4
+audio.wav
+normalized.wav
+enhanced.mp4
+```
+
+---
+
+# Download Processed Video
+
+```bash
+kubectl cp ai-forgestream/debug-pvc:/data/enhanced.mp4 outputs/terraform-enhanced.mp4
+```
+
+Expected:
+
+```text
+outputs/terraform-enhanced.mp4
+```
+
+---
+
+# Destroy and Rebuild Test
+
+Delete Namespace:
+
+```bash
+kubectl delete namespace ai-forgestream
+```
+
+Terraform detects drift:
+
+```bash
+terraform plan
+```
+
+Expected:
+
+```text
+6 to add
+```
+
+Recreate:
+
+```bash
+terraform apply
+```
+
+Expected:
+
+```text
+Apply complete!
+```
+
+---
+
+# Current Terraform Outputs
+
+```bash
+terraform output
+```
+
+Example:
+
+```text
+namespace = "ai-forgestream"
+pvc_name = "media-storage"
+service_account = "ai-forgestream-api-sa"
+role_name = "job-manager-role"
+```
+
+---
+
+# Terraform Managed Workloads
+The objective is to manage Pods and Jobs directly through Terraform rather than manually applying Kubernetes manifests.
+
+```FFmpeg Job```
+
+Purpose:
+
+Execute media processing
+Consume input media
+Produce enhanced output
+
+```Terraform Resource:```
+
+resource "kubernetes_job" "ffmpeg_process"
+Import Existing Workloads
+
+If workloads were initially created using kubectl, Terraform can adopt them.
+
+Import Debug Pod:
+
+```terraform import kubernetes_pod.debug_pvc ai-forgestream/debug-pvc```
+
+Import FFmpeg Job:
+
+```terraform import kubernetes_job.ffmpeg_process ai-forgestream/ffmpeg-process-input```
+Verify Terraform State
+
+List resources:
+
+```terraform state list```
+
+Expected:
+
+```kubernetes_namespace.ai_forgestream
+kubernetes_config_map.ffmpeg_config
+kubernetes_persistent_volume_claim.media_storage
+kubernetes_service_account.api_sa
+kubernetes_role.job_manager_role
+kubernetes_role_binding.job_manager_binding
+kubernetes_pod.debug_pvc
+kubernetes_job.ffmpeg_process```
+
+Drift Detection
+
+Terraform continuously compares actual cluster resources with the declared configuration.
+
+Run:
+
+```terraform plan```
+
+Example output:
+
+Terraform detected changes outside Terraform
+
+This confirms drift detection is functioning correctly.
+
+Terraform Reconciliation Test
+
+Modify workload definitions.
+
+Run:
+
+```terraform apply```
+
+Terraform will:
+
+Destroy old workload
+Create new workload
+
+Example:
+
+Plan: 2 to add, 2 to destroy
+
+Result:
+
+kubernetes_pod.debug_pvc
+kubernetes_job.ffmpeg_process
+
+are recreated automatically.
+
+Validate Workload Recreation
+
+Verify Pod:
+
+```kubectl get pods -n ai-forgestream```
+
+Expected:
+
+debug-pvc Running
+
+Verify Job:
+
+kubectl get jobs -n ai-forgestream
+
+Expected:
+
+ffmpeg-process-input Complete
+Infrastructure Coverage
+
+Terraform now manages:
+
+Platform Layer
+Namespace
+ConfigMap
+PVC
+RBAC
+Service Accounts
+Workload Layer
+Debug Pod
+FFmpeg Job
+
+---
+
+# Current Project Status
+
+## Completed
+
+* Phase 1 Environment Setup
+* Phase 2 Terraform Infrastructure
+* Phase 3 State Management
+* Phase 4 FFmpeg Media Processing
+
+## Upcoming
+
+* Phase 4.5 Terraform Managed Workloads
+* Phase 5 FastAPI Service
+* Phase 6 Kubernetes API Integration
+* Phase 7 AWS EKS Deployment
+* Phase 8 Production CI/CD
+* Phase 9 Observability
+* Phase 10 AI Pipeline Integration
+
+---
+
+# Author
+
+Vikash Jaiswal
+
+AWS | Terraform | Kubernetes | DevOps | Platform Engineering | AI Infrastructure
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### Phase 1: Local Terminal Commands
 These are the manual commands you ran on your machine to process the test video (as documented in `Commands.sh`):
@@ -215,6 +922,28 @@ docker run -it -v $(pwd):/workspace ffmpeg-forge:2.0
 ---
 
 ### Phase 3: Infrastructure Provisioning (Terraform IaC)
+## Phase 3 Completed
+
+### Kubernetes Batch Media Processing
+
+Features:
+
+- Kubernetes Namespace
+- ConfigMap Configuration Management
+- Persistent Volume Claims (PVC)
+- Shared Storage Validation
+- FFmpeg Batch Processing Jobs
+- Kubernetes Native Media Workflows
+
+Validated Outputs:
+
+- enhanced.mp4
+- docker_enhanced.mp4
+- k8s-enhanced.mp4
+
+Platform Stack:
+
+FFmpeg → Docker → Kubernetes
 
 Rather than applying Kubernetes configurations manually, you can use **Terraform** to deploy the infrastructure components as code:
 

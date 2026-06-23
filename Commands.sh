@@ -1480,3 +1480,982 @@ drwxr-xr-x@ 14 vikash  staff  448 Jun 20 01:27 480p
 -rw-r--r--@  1 vikash  staff  346 Jun 20 01:27 master.m3u8
 -rw-r--r--@  1 vikash  staff  821 Jun 20 01:27 metrics.json
 vikash@Vikashs-MacBook-Pro AI-ForgeStream % 
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get jobs -n ai-forgestream
+NAME                   STATUS     COMPLETIONS   DURATION   AGE
+ffmpeg-process-input   Complete   1/1           9s         5m18s
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pods -n ai-forgestream
+NAME                         READY   STATUS      RESTARTS   AGE
+debug-pvc                    1/1     Running     0          18m
+ffmpeg-process-input-g9s2g   0/1     Completed   0          5m25s
+
+### Phase 4 - Terraform Infrastructure Provisioning
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % terraform version
+Terraform v1.15.6
+on darwin_amd64
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cat terraform/main.tf 
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+  }
+}
+
+provider "kubernetes" {
+  config_path = "~/.kube/config" # Connects to the local Kubernetes cluster
+}
+
+resource "kubernetes_namespace" "ai_forgestream" {
+  metadata {
+    name = "ai-forgestream"
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "media_storage" {
+  metadata {
+    name      = "media-storage"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "1Gi"
+      }
+    }
+  }
+}
+
+resource "kubernetes_service_account" "api_sa" {
+  metadata {
+    name      = "ai-forgestream-api-sa"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+}
+
+resource "kubernetes_role" "job_manager_role" {
+  metadata {
+    name      = "job-manager-role"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  rule {
+    api_groups = ["batch"]
+    resources  = ["jobs"]
+    verbs      = ["get", "list", "watch", "create", "update", "patch", "delete"]
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["pods", "pods/log"]
+    verbs      = ["get", "list", "watch"]
+  }
+}
+
+resource "kubernetes_role_binding" "job_manager_binding" {
+  metadata {
+    name      = "job-manager-role-binding"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.api_sa.metadata[0].name
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role.job_manager_role.metadata[0].name
+  }
+}
+
+resource "kubernetes_config_map" "ffmpeg_config" {
+  metadata {
+    name      = "ffmpeg-config"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  data = {
+    VIDEO_CODEC   = "libx264"
+    AUDIO_CODEC   = "aac"
+    VIDEO_BITRATE = "2000k"
+    AUDIO_BITRATE = "128k"
+  }
+}
+
+output "namespace" {
+  value = kubernetes_namespace.ai_forgestream.metadata[0].name
+}
+
+output "pvc_name" {
+  value = kubernetes_persistent_volume_claim.media_storage.metadata[0].name
+}
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % cd terraform 
+vikash@Vikashs-MacBook-Pro terraform % terraform init
+Initializing provider plugins found in the configuration...
+- Finding hashicorp/kubernetes versions matching "~> 2.0"...
+- Installing hashicorp/kubernetes v2.38.0...
+- Installed hashicorp/kubernetes v2.38.0 (signed by HashiCorp)
+
+Initializing the backend...
+
+
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % terraform plan
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # kubernetes_config_map.ffmpeg_config will be created
+  + resource "kubernetes_config_map" "ffmpeg_config" {
+      + data = {
+          + "AUDIO_BITRATE" = "128k"
+          + "AUDIO_CODEC"   = "aac"
+          + "VIDEO_BITRATE" = "2000k"
+          + "VIDEO_CODEC"   = "libx264"
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ffmpeg-config"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_namespace.ai_forgestream will be created
+  + resource "kubernetes_namespace" "ai_forgestream" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_persistent_volume_claim.media_storage will be created
+  + resource "kubernetes_persistent_volume_claim" "media_storage" {
+      + id               = (known after apply)
+      + wait_until_bound = true
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "media-storage"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + access_modes       = [
+              + "ReadWriteOnce",
+            ]
+          + storage_class_name = (known after apply)
+          + volume_mode        = (known after apply)
+          + volume_name        = (known after apply)
+
+          + resources {
+              + requests = {
+                  + "storage" = "1Gi"
+                }
+            }
+        }
+    }
+
+  # kubernetes_role.job_manager_role will be created
+  + resource "kubernetes_role" "job_manager_role" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "job-manager-role"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + rule {
+          + api_groups = [
+              + "batch",
+            ]
+          + resources  = [
+              + "jobs",
+            ]
+          + verbs      = [
+              + "create",
+              + "delete",
+              + "get",
+              + "list",
+              + "patch",
+              + "update",
+              + "watch",
+            ]
+        }
+      + rule {
+          + api_groups = [
+              + null,
+            ]
+          + resources  = [
+              + "pods",
+              + "pods/log",
+            ]
+          + verbs      = [
+              + "get",
+              + "list",
+              + "watch",
+            ]
+        }
+    }
+
+  # kubernetes_role_binding.job_manager_binding will be created
+  + resource "kubernetes_role_binding" "job_manager_binding" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "job-manager-role-binding"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + role_ref {
+          + api_group = "rbac.authorization.k8s.io"
+          + kind      = "Role"
+          + name      = "job-manager-role"
+        }
+
+      + subject {
+          + api_group = (known after apply)
+          + kind      = "ServiceAccount"
+          + name      = "ai-forgestream-api-sa"
+          + namespace = "ai-forgestream"
+        }
+    }
+
+  # kubernetes_service_account.api_sa will be created
+  + resource "kubernetes_service_account" "api_sa" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ai-forgestream-api-sa"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 6 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + namespace = "ai-forgestream"
+  + pvc_name  = "media-storage"
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % cd ..
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get ns ai-forgestream
+NAME             STATUS   AGE
+ai-forgestream   Active   3d4h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get configmap -n ai-forgestream
+NAME               DATA   AGE
+ffmpeg-config      4      3d3h
+kube-root-ca.crt   1      3d4h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get pvc -n ai-forgestream
+NAME            STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+media-storage   Bound    pvc-ddafda19-805f-49d2-b35e-0342c80d6b65   1Gi        RWO            standard       <unset>                 3d3h
+vikash@Vikashs-MacBook-Pro AI-ForgeStream % kubectl get sa -n ai-forgestream
+NAME      AGE
+default   3d4h
+vikash@Vikashs-MacBook-Pro terraform % terraform import kubernetes_namespace.ai_forgestream ai-forgestream
+kubernetes_namespace.ai_forgestream: Importing from ID "ai-forgestream"...
+kubernetes_namespace.ai_forgestream: Import prepared!
+  Prepared kubernetes_namespace for import
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+
+Import successful!
+
+The resources that were imported are shown above. These resources are now in
+your Terraform state and will henceforth be managed by Terraform.
+
+vikash@Vikashs-MacBook-Pro terraform % terraform import kubernetes_config_map.ffmpeg_config ai-forgestream/ffmpeg-config 
+kubernetes_config_map.ffmpeg_config: Importing from ID "ai-forgestream/ffmpeg-config"...
+kubernetes_config_map.ffmpeg_config: Import prepared!
+  Prepared kubernetes_config_map for import
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+
+Import successful!
+
+The resources that were imported are shown above. These resources are now in
+your Terraform state and will henceforth be managed by Terraform.
+
+vikash@Vikashs-MacBook-Pro terraform % terraform import kubernetes_persistent_volume_claim.media_storage ai-forgestream/media-storage 
+kubernetes_persistent_volume_claim.media_storage: Importing from ID "ai-forgestream/media-storage"...
+kubernetes_persistent_volume_claim.media_storage: Import prepared!
+  Prepared kubernetes_persistent_volume_claim for import
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+
+Import successful!
+
+The resources that were imported are shown above. These resources are now in
+your Terraform state and will henceforth be managed by Terraform.
+
+vikash@Vikashs-MacBook-Pro terraform % terraform plan
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # kubernetes_role.job_manager_role will be created
+  + resource "kubernetes_role" "job_manager_role" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "job-manager-role"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + rule {
+          + api_groups = [
+              + "batch",
+            ]
+          + resources  = [
+              + "jobs",
+            ]
+          + verbs      = [
+              + "create",
+              + "delete",
+              + "get",
+              + "list",
+              + "patch",
+              + "update",
+              + "watch",
+            ]
+        }
+      + rule {
+          + api_groups = [
+              + null,
+            ]
+          + resources  = [
+              + "pods",
+              + "pods/log",
+            ]
+          + verbs      = [
+              + "get",
+              + "list",
+              + "watch",
+            ]
+        }
+    }
+
+  # kubernetes_role_binding.job_manager_binding will be created
+  + resource "kubernetes_role_binding" "job_manager_binding" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "job-manager-role-binding"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + role_ref {
+          + api_group = "rbac.authorization.k8s.io"
+          + kind      = "Role"
+          + name      = "job-manager-role"
+        }
+
+      + subject {
+          + api_group = (known after apply)
+          + kind      = "ServiceAccount"
+          + name      = "ai-forgestream-api-sa"
+          + namespace = "ai-forgestream"
+        }
+    }
+
+  # kubernetes_service_account.api_sa will be created
+  + resource "kubernetes_service_account" "api_sa" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ai-forgestream-api-sa"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 3 to add, 0 to change, 0 to destroy.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % kubectl get role -n ai-forgestream
+No resources found in ai-forgestream namespace.
+vikash@Vikashs-MacBook-Pro terraform % touch provider.tf namespace.tf configmap.tf pvc.tf rbac.tf outputs.tf
+vikash@Vikashs-MacBook-Pro terraform % terraform apply
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # kubernetes_role.job_manager_role will be created
+  + resource "kubernetes_role" "job_manager_role" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "job-manager-role"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + rule {
+          + api_groups = [
+              + "batch",
+            ]
+          + resources  = [
+              + "jobs",
+            ]
+          + verbs      = [
+              + "create",
+              + "delete",
+              + "get",
+              + "list",
+              + "patch",
+              + "update",
+              + "watch",
+            ]
+        }
+      + rule {
+          + api_groups = [
+              + null,
+            ]
+          + resources  = [
+              + "pods",
+              + "pods/log",
+            ]
+          + verbs      = [
+              + "get",
+              + "list",
+              + "watch",
+            ]
+        }
+    }
+
+  # kubernetes_role_binding.job_manager_binding will be created
+  + resource "kubernetes_role_binding" "job_manager_binding" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "job-manager-role-binding"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + role_ref {
+          + api_group = "rbac.authorization.k8s.io"
+          + kind      = "Role"
+          + name      = "job-manager-role"
+        }
+
+      + subject {
+          + api_group = (known after apply)
+          + kind      = "ServiceAccount"
+          + name      = "ai-forgestream-api-sa"
+          + namespace = "ai-forgestream"
+        }
+    }
+
+  # kubernetes_service_account.api_sa will be created
+  + resource "kubernetes_service_account" "api_sa" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ai-forgestream-api-sa"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 3 to add, 0 to change, 0 to destroy.
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value: yes
+
+kubernetes_service_account.api_sa: Creating...
+kubernetes_role.job_manager_role: Creating...
+kubernetes_role.job_manager_role: Creation complete after 0s [id=ai-forgestream/job-manager-role]
+kubernetes_service_account.api_sa: Creation complete after 0s [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_role_binding.job_manager_binding: Creating...
+kubernetes_role_binding.job_manager_binding: Creation complete after 0s [id=ai-forgestream/job-manager-role-binding]
+
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+namespace = "ai-forgestream"
+pvc_name = "media-storage"
+vikash@Vikashs-MacBook-Pro terraform % kubectl get role -n ai-forgestream
+NAME               CREATED AT
+job-manager-role   2026-06-22T22:57:40Z
+vikash@Vikashs-MacBook-Pro terraform % kubectl get rolebinding -n ai-forgestream
+NAME                       ROLE                    AGE
+job-manager-role-binding   Role/job-manager-role   53s
+vikash@Vikashs-MacBook-Pro terraform % terraform state list
+kubernetes_config_map.ffmpeg_config
+kubernetes_namespace.ai_forgestream
+kubernetes_persistent_volume_claim.media_storage
+kubernetes_role.job_manager_role
+kubernetes_role_binding.job_manager_binding
+kubernetes_service_account.api_sa
+vikash@Vikashs-MacBook-Pro terraform % 
+
+# Breaking main.tf now into multiple module.
+vikash@Vikashs-MacBook-Pro terraform % cp main.tf main.tf.bak
+ikash@Vikashs-MacBook-Pro terraform % code provider.tf 
+vikash@Vikashs-MacBook-Pro terraform % cat provider.tf 
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+  }
+}
+
+provider "kubernetes" {
+  config_path = "~/.kube/config"
+}%                                                                                                                                                                                                                          
+
+vikash@Vikashs-MacBook-Pro terraform % code namespace.tf 
+vikash@Vikashs-MacBook-Pro terraform % cat namespace.tf
+resource "kubernetes_namespace" "ai_forgestream" {
+
+  metadata {
+    name = "ai-forgestream"
+  }
+
+}%                               
+
+vikash@Vikashs-MacBook-Pro terraform % code configmap.tf 
+vikash@Vikashs-MacBook-Pro terraform % cat configmap.tf
+resource "kubernetes_config_map" "ffmpeg_config" {
+
+  metadata {
+    name      = "ffmpeg-config"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  data = {
+    VIDEO_CODEC   = "libx264"
+    AUDIO_CODEC   = "aac"
+    VIDEO_BITRATE = "2000k"
+    AUDIO_BITRATE = "128k"
+  }
+
+}% 
+
+vikash@Vikashs-MacBook-Pro terraform % code pvc.tf 
+vikash@Vikashs-MacBook-Pro terraform % cat pvc.tf 
+resource "kubernetes_persistent_volume_claim" "media_storage" {
+
+  metadata {
+    name      = "media-storage"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+
+    labels = {
+      app = "ai-forgestream"
+      tier = "storage"
+    }
+  }
+
+  spec {
+    access_modes = ["ReadWriteOnce"]
+
+    # 🔥 IMPORTANT: explicitly bind to your StorageClass
+    storage_class_name = "standard"
+
+    resources {
+      requests = {
+        storage = "1Gi"
+      }
+    }
+  }
+
+  # 🔥 IMPORTANT for Terraform stability in WaitForFirstConsumer clusters
+  wait_until_bound = false
+}%
+
+vikash@Vikashs-MacBook-Pro terraform % code rbac.tf 
+vikash@Vikashs-MacBook-Pro terraform % cat rbac.tf 
+resource "kubernetes_service_account" "api_sa" {
+
+  metadata {
+    name      = "ai-forgestream-api-sa"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+}
+
+resource "kubernetes_role" "job_manager_role" {
+
+  metadata {
+    name      = "job-manager-role"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  rule {
+    api_groups = ["batch"]
+
+    resources = [
+      "jobs"
+    ]
+
+    verbs = [
+      "get",
+      "list",
+      "watch",
+      "create",
+      "update",
+      "patch",
+      "delete"
+    ]
+  }
+
+  rule {
+    api_groups = [""]
+
+    resources = [
+      "pods",
+      "pods/log"
+    ]
+
+    verbs = [
+      "get",
+      "list",
+      "watch"
+    ]
+  }
+
+}
+
+resource "kubernetes_role_binding" "job_manager_binding" {
+
+  metadata {
+    name      = "job-manager-role-binding"
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.api_sa.metadata[0].name
+    namespace = kubernetes_namespace.ai_forgestream.metadata[0].name
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = kubernetes_role.job_manager_role.metadata[0].name
+  }
+
+}%
+
+vikash@Vikashs-MacBook-Pro terraform % code outputs.tf 
+vikash@Vikashs-MacBook-Pro terraform % cat outputs.tf
+output "namespace" {
+
+  value = kubernetes_namespace.ai_forgestream.metadata[0].name
+
+}
+
+output "pvc_name" {
+
+  value = kubernetes_persistent_volume_claim.media_storage.metadata[0].name
+
+}
+
+output "service_account" {
+
+  value = kubernetes_service_account.api_sa.metadata[0].name
+
+}
+
+output "role_name" {
+
+  value = kubernetes_role.job_manager_role.metadata[0].name
+
+}%                                                                                                                                                                                                                          
+
+# Purging main.tf after breaking it into multiple files.
+vikash@Vikashs-MacBook-Pro terraform % rm main.tf
+vikash@Vikashs-MacBook-Pro terraform % terraform fmt
+vikash@Vikashs-MacBook-Pro terraform % terraform validate
+Success! The configuration is valid.
+
+vikash@Vikashs-MacBook-Pro terraform % terraform plan
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_service_account.api_sa: Refreshing state... [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_role.job_manager_role: Refreshing state... [id=ai-forgestream/job-manager-role]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+kubernetes_role_binding.job_manager_binding: Refreshing state... [id=ai-forgestream/job-manager-role-binding]
+
+Changes to Outputs:
+  + role_name       = "job-manager-role"
+  + service_account = "ai-forgestream-api-sa"
+
+You can apply this plan to save these new output values to the Terraform state, without changing any real infrastructure.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+vikash@Vikashs-MacBook-Pro terraform % 
+
+# Validating terraform state after breaking main.tf into multiple files.
+vikash@Vikashs-MacBook-Pro terraform % terraform plan
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_role.job_manager_role: Refreshing state... [id=ai-forgestream/job-manager-role]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+kubernetes_service_account.api_sa: Refreshing state... [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_role_binding.job_manager_binding: Refreshing state... [id=ai-forgestream/job-manager-role-binding]
+
+Changes to Outputs:
+  + role_name       = "job-manager-role"
+  + service_account = "ai-forgestream-api-sa"
+
+You can apply this plan to save these new output values to the Terraform state, without changing any real infrastructure.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+vikash@Vikashs-MacBook-Pro terraform % terraform apply
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_service_account.api_sa: Refreshing state... [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_role.job_manager_role: Refreshing state... [id=ai-forgestream/job-manager-role]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+kubernetes_role_binding.job_manager_binding: Refreshing state... [id=ai-forgestream/job-manager-role-binding]
+
+Changes to Outputs:
+  + role_name       = "job-manager-role"
+  + service_account = "ai-forgestream-api-sa"
+
+You can apply this plan to save these new output values to the Terraform state, without changing any real infrastructure.
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value: yes
+
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+namespace = "ai-forgestream"
+pvc_name = "media-storage"
+role_name = "job-manager-role"
+service_account = "ai-forgestream-api-sa"
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % terraform plan 
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_service_account.api_sa: Refreshing state... [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+kubernetes_role.job_manager_role: Refreshing state... [id=ai-forgestream/job-manager-role]
+kubernetes_role_binding.job_manager_binding: Refreshing state... [id=ai-forgestream/job-manager-role-binding]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+vikash@Vikashs-MacBook-Pro terraform % kubectl delete configmap ffmpeg-config -n ai-forgestream
+configmap "ffmpeg-config" deleted from ai-forgestream namespace
+vikash@Vikashs-MacBook-Pro terraform % terraform plan                                          
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_service_account.api_sa: Refreshing state... [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+kubernetes_role.job_manager_role: Refreshing state... [id=ai-forgestream/job-manager-role]
+kubernetes_role_binding.job_manager_binding: Refreshing state... [id=ai-forgestream/job-manager-role-binding]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # kubernetes_config_map.ffmpeg_config will be created
+  + resource "kubernetes_config_map" "ffmpeg_config" {
+      + data = {
+          + "AUDIO_BITRATE" = "128k"
+          + "AUDIO_CODEC"   = "aac"
+          + "VIDEO_BITRATE" = "2000k"
+          + "VIDEO_CODEC"   = "libx264"
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ffmpeg-config"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+vikash@Vikashs-MacBook-Pro terraform % terraform apply                                         
+kubernetes_namespace.ai_forgestream: Refreshing state... [id=ai-forgestream]
+kubernetes_config_map.ffmpeg_config: Refreshing state... [id=ai-forgestream/ffmpeg-config]
+kubernetes_service_account.api_sa: Refreshing state... [id=ai-forgestream/ai-forgestream-api-sa]
+kubernetes_persistent_volume_claim.media_storage: Refreshing state... [id=ai-forgestream/media-storage]
+kubernetes_role.job_manager_role: Refreshing state... [id=ai-forgestream/job-manager-role]
+kubernetes_role_binding.job_manager_binding: Refreshing state... [id=ai-forgestream/job-manager-role-binding]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # kubernetes_config_map.ffmpeg_config will be created
+  + resource "kubernetes_config_map" "ffmpeg_config" {
+      + data = {
+          + "AUDIO_BITRATE" = "128k"
+          + "AUDIO_CODEC"   = "aac"
+          + "VIDEO_BITRATE" = "2000k"
+          + "VIDEO_CODEC"   = "libx264"
+        }
+      + id   = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "ffmpeg-config"
+          + namespace        = "ai-forgestream"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value: yes
+
+kubernetes_config_map.ffmpeg_config: Creating...
+kubernetes_config_map.ffmpeg_config: Creation complete after 0s [id=ai-forgestream/ffmpeg-config]
+
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+namespace = "ai-forgestream"
+pvc_name = "media-storage"
+role_name = "job-manager-role"
+service_account = "ai-forgestream-api-sa"
+vikash@Vikashs-MacBook-Pro terraform % 
+
+# Validating the Namespace and processing the data again:
+vikash@Vikashs-MacBook-Pro terraform % kubectl apply -f ../k8s/debug-pvc-pod.yaml
+pod/debug-pvc created
+vikash@Vikashs-MacBook-Pro terraform % kubectl get pods -n ai-forgestream
+NAME        READY   STATUS    RESTARTS   AGE
+debug-pvc   1/1     Running   0          7s
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % 
+vikash@Vikashs-MacBook-Pro terraform % kubectl exec -it debug-pvc -n ai-forgestream -- sh
+/ # ls -lah /data
+total 8K     
+drwxrwxrwx    2 root     root        4.0K Jun 22 23:40 .
+drwxr-xr-x    1 root     root        4.0K Jun 23 05:11 ..
+/ # kubectl cp ../samples/input.mp4 ai-forgestream/debug-pvc:/data/input.mp4^C
+
+/ # exit
+command terminated with exit code 130
+vikash@Vikashs-MacBook-Pro terraform % kubectl cp ../samples/input.mp4 ai-forgestream/debug-pvc:/data/input.mp4
+vikash@Vikashs-MacBook-Pro terraform % kubectl apply -f ../k8s/ffmpeg-process-input-job.yaml
+job.batch/ffmpeg-process-input created
+vikash@Vikashs-MacBook-Pro terraform % kubectl get jobs -n ai-forgestream
+NAME                   STATUS    COMPLETIONS   DURATION   AGE
+ffmpeg-process-input   Running   0/1           6s         6s
+vikash@Vikashs-MacBook-Pro terraform % kubectl get jobs -n ai-forgestream
+NAME                   STATUS     COMPLETIONS   DURATION   AGE
+ffmpeg-process-input   Complete   1/1           9s         16s
+vikash@Vikashs-MacBook-Pro terraform % kubectl get pods -n ai-forgestream
+NAME                         READY   STATUS      RESTARTS        AGE
+debug-pvc                    1/1     Running     1 (5m49s ago)   5h36m
+ffmpeg-process-input-bwqs6   0/1     Completed   0               17s
+vikash@Vikashs-MacBook-Pro terraform % kubectl cp ai-forgestream/debug-pvc:/data/enhanced.mp4 ../outputs/terraform-enhanced.mp4
+tar: removing leading '/' from member names
