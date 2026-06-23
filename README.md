@@ -732,11 +732,16 @@ If workloads were initially created using kubectl, Terraform can adopt them.
 
 Import Debug Pod:
 
-```terraform import kubernetes_pod.debug_pvc ai-forgestream/debug-pvc```
+```bash
+terraform import kubernetes_pod.debug_pvc ai-forgestream/debug-pvc
+```
 
 Import FFmpeg Job:
 
-```terraform import kubernetes_job.ffmpeg_process ai-forgestream/ffmpeg-process-input```
+```bash
+terraform import kubernetes_job.ffmpeg_process ai-forgestream/ffmpeg-process-input
+```
+
 Verify Terraform State
 
 List resources:
@@ -745,14 +750,16 @@ List resources:
 
 Expected:
 
-```kubernetes_namespace.ai_forgestream
+```text
+kubernetes_namespace.ai_forgestream
 kubernetes_config_map.ffmpeg_config
 kubernetes_persistent_volume_claim.media_storage
 kubernetes_service_account.api_sa
 kubernetes_role.job_manager_role
 kubernetes_role_binding.job_manager_binding
 kubernetes_pod.debug_pvc
-kubernetes_job.ffmpeg_process```
+kubernetes_job.ffmpeg_process
+```
 
 Drift Detection
 
@@ -760,7 +767,9 @@ Terraform continuously compares actual cluster resources with the declared confi
 
 Run:
 
-```terraform plan```
+```bash
+terraform plan
+```
 
 Example output:
 
@@ -774,12 +783,16 @@ Modify workload definitions.
 
 Run:
 
-```terraform apply```
+```bash
+terraform apply
+```
 
 Terraform will:
 
+```text
 Destroy old workload
 Create new workload
+```
 
 Example:
 
@@ -796,20 +809,28 @@ Validate Workload Recreation
 
 Verify Pod:
 
-```kubectl get pods -n ai-forgestream```
+```bash
+kubectl get pods -n ai-forgestream
+```
 
 Expected:
 
+```text
 debug-pvc Running
+```
 
 Verify Job:
 
+```bash
 kubectl get jobs -n ai-forgestream
+```bash
 
 Expected:
 
+```text
 ffmpeg-process-input Complete
 Infrastructure Coverage
+```
 
 Terraform now manages:
 
